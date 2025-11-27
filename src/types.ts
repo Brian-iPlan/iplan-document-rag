@@ -5,6 +5,7 @@ export interface DocumentItem {
   date: string;
   status: 'active' | 'indexing' | 'error';
   size?: string;
+  clientId?: string;
 }
 
 export interface ChatMessage {

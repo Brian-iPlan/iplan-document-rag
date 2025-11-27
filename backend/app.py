@@ -68,6 +68,7 @@ def upload_document_handler():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
     file = request.files['file']
+    clientId = request.form.get('clientId')
     if file.filename == '' or not allowed_file(file.filename):
         return jsonify({"error": "Invalid or no selected file"}), 400
 
@@ -79,6 +80,7 @@ def upload_document_handler():
     doc_metadata = {
         "id": doc_id,
         "name": filename,
+        "clientId": clientId,
         "type": filename.rsplit('.', 1)[1].lower(),
         "date": "Just now",
         "status": 'indexing',
@@ -87,16 +89,13 @@ def upload_document_handler():
     }
     documents_db[doc_id] = doc_metadata
 
-    # No need to extract text for the prompt, but useful for preview
     text_content = extract_text(filepath)
     documents_db[doc_id]['content'] = text_content
 
     try:
-        print(f"Uploading {filename} to Gemini File API...")
-        gemini_file = genai.upload_file(path=filepath, display_name=filename)
+        gemini_file = genai.upload_file(path=filepath, display_name=f"{clientId}_{filename}")
         documents_db[doc_id]['gemini_name'] = gemini_file.name
         documents_db[doc_id]['status'] = 'active'
-        print(f"Upload successful. Gemini Name: {gemini_file.name}")
     except Exception as e:
         documents_db[doc_id]['status'] = 'error'
         print(f"Gemini API upload failed: {e}")
@@ -109,7 +108,6 @@ def delete_document_handler(doc_id):
     doc = documents_db.pop(doc_id, None)
     if doc and doc.get('gemini_name'):
         try:
-            print(f"Deleting {doc['gemini_name']} from Gemini...")
             genai.delete_file(doc['gemini_name'])
         except Exception as e:
             print(f"Failed to delete file from Gemini: {e}")
@@ -124,27 +122,26 @@ def get_document_content_handler(doc_id):
     doc = documents_db.get(doc_id)
     if not doc:
         return jsonify({"error": "Document not found"}), 404
-    # Return the text we extracted earlier for preview
     return jsonify({"id": doc_id, "content": doc.get('content', "No content available.")})
 
 @app.route('/chat', methods=['POST'])
 def chat_handler():
     data = request.get_json()
-    if not data or 'message' not in data:
+    if not data or 'message' not in data or 'clientId' not in data:
         return jsonify({"error": "Invalid request"}), 400
 
     user_message = data['message']
+    client_id = data['clientId']
     
-    # Get the file objects from Gemini for all active documents
     context_files = []
     for doc in documents_db.values():
-        if doc['status'] == 'active' and doc['gemini_name']:
+        if doc['status'] == 'active' and doc.get('clientId') == client_id and doc.get('gemini_name'):
             context_files.append(genai.get_file(name=doc['gemini_name']))
 
-    model_prompt = [
-        user_message,
-        *context_files
-    ]
+    if not context_files:
+        return jsonify({"response": "I do not have access to any documents for that client. Please upload one first."})
+
+    model_prompt = [user_message, *context_files]
 
     try:
         model = genai.GenerativeModel(model_name='models/gemini-pro-latest')
