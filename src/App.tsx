@@ -4,7 +4,7 @@ import ChatInterface from './components/ChatInterface';
 import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
-import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
+import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon } from 'lucide-react';
 
 const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
