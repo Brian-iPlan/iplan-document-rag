@@ -16,9 +16,4 @@ export interface ChatMessage {
   isError?: boolean;
 }
 
-export interface DocumentFilter {
-  id: 'all' | 'active' | 'processing';
-  label: string;
-}
-
 export type ViewMode = 'dashboard' | 'documents' | 'settings';

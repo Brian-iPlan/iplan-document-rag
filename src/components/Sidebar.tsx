@@ -27,6 +27,10 @@ interface SidebarProps {
   onDelete?: (id: string) => void;
   clientId: string;
   onClientIdChange: (id: string) => void;
+  searchQuery: string;
+  onSearchQueryChange: (query: string) => void;
+  filter: 'all' | 'active' | 'processing';
+  onFilterChange: (filter: 'all' | 'active' | 'processing') => void;
 }
 
 const AppLogo = () => (
@@ -55,11 +59,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onDelete,
   clientId,
-  onClientIdChange
+  onClientIdChange,
+  searchQuery,
+  onSearchQueryChange,
+  filter,
+  onFilterChange
 }) => {
-  const [filter, setFilter] = useState<'all' | 'active' | 'processing'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  
   const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
   const [previewContent, setPreviewContent] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -105,15 +110,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         setLoadingPreview(false);
     }
   };
-
-  const filteredDocs = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = 
-      filter === 'all' ? true : 
-      filter === 'active' ? doc.status === 'active' :
-      filter === 'processing' ? doc.status === 'indexing' : true;
-    return matchesSearch && matchesFilter;
-  });
 
   const NavButton = ({ view, icon: Icon }: { view: ViewMode, icon: any }) => (
     <button 
@@ -190,7 +186,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               placeholder="Search documents..."
               className="w-full bg-[#0f172a] border border-slate-700 text-slate-200 text-sm rounded-lg pl-9 pr-4 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-500"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
             />
           </div>
 
@@ -198,7 +194,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {(['all', 'active', 'processing'] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => setFilter(t)}
+                onClick={() => onFilterChange(t)}
                 className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
                   filter === t 
                     ? 'bg-slate-700 text-white shadow-sm' 
@@ -212,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
-          {filteredDocs.map((doc) => (
+          {documents.map((doc) => (
             <div 
               key={doc.id}
               onClick={() => handleDocClick(doc)}
@@ -247,9 +243,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ))}
           
-          {filteredDocs.length === 0 && (
+          {documents.length === 0 && (
             <div className="text-center py-10 text-slate-500 text-sm">
-              No documents found
+              No documents found for the current filters.
             </div>
           )}
         </div>

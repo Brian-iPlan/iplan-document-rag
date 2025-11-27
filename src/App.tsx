@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
-import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon } from 'lucide-react';
+import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -12,7 +12,11 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  
   const [clientId, setClientId] = useState('CLIENT-001');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'active' | 'processing'>('all');
+
   const [activeView, setActiveView] = useState<ViewMode>('documents');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -30,7 +34,7 @@ const App: React.FC = () => {
     fetchDocs();
   }, []);
 
-  const handleUpload = () => {
+  const handleUpload = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.docx,.txt,.md,.csv';
@@ -42,7 +46,7 @@ const App: React.FC = () => {
         const optimisticDoc: DocumentItem = {
           id: tempId,
           name: file.name,
-          clientId: clientId,
+          clientId: clientId, // This now has the latest clientId
           type: (file.name.split('.').pop() as any) || 'other',
           date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           status: 'indexing'
@@ -65,7 +69,7 @@ const App: React.FC = () => {
     };
     
     input.click();
-  };
+  }, [clientId]); // Dependency array ensures the function is fresh
 
   const handleDeleteDocument = async (id: string) => {
     const prevDocs = documents;
@@ -123,12 +127,19 @@ const App: React.FC = () => {
     setToast({ message: "Conversation history cleared", type: 'success' });
   };
 
-  const filteredDocumentsForSidebar = documents.filter(doc => !clientId || doc.clientId === clientId);
+  const filteredDocuments = documents.filter(doc => {
+    const matchesClient = !clientId || doc.clientId === clientId;
+    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = 
+      filter === 'all' ? true : 
+      filter === 'active' ? doc.status === 'active' :
+      filter === 'processing' ? doc.status === 'indexing' : true;
+    return matchesClient && matchesSearch && matchesFilter;
+  });
 
   const DashboardView = () => (
     <div className="flex-1 overflow-y-auto p-6 bg-[#0f172a] text-slate-200">
       <h2 className="text-2xl font-bold text-white mb-6">Dashboard Overview</h2>
-      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
           <div className="flex justify-between items-start mb-4">
@@ -138,7 +149,6 @@ const App: React.FC = () => {
           <h3 className="text-3xl font-bold text-white mb-1">{documents.length}</h3>
           <p className="text-sm text-slate-400">Documents Indexed</p>
         </div>
-        
         <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-emerald-500/20 rounded-lg text-emerald-400"><HardDrive size={24} /></div>
@@ -147,7 +157,6 @@ const App: React.FC = () => {
           <h3 className="text-3xl font-bold text-white mb-1">{isConnected ? 'Active' : 'Offline'}</h3>
           <p className="text-sm text-slate-400">System Status</p>
         </div>
-
         <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-purple-500/20 rounded-lg text-purple-400"><Cpu size={24} /></div>
@@ -157,15 +166,10 @@ const App: React.FC = () => {
           <p className="text-sm text-slate-400">Active Model</p>
         </div>
       </div>
-
       <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-8 text-center">
-        <div className="inline-block p-4 rounded-full bg-slate-800 mb-4 text-slate-400">
-          <BarChart3 size={48} />
-        </div>
+        <div className="inline-block p-4 rounded-full bg-slate-800 mb-4 text-slate-400"><BarChart3 size={48} /></div>
         <h3 className="text-lg font-medium text-white mb-2">Analytics Coming Soon</h3>
-        <p className="text-slate-400 max-w-md mx-auto">
-          Detailed document analytics and usage insights will be available in a future update.
-        </p>
+        <p className="text-slate-400 max-w-md mx-auto">Detailed document analytics and usage insights will be available in a future update.</p>
       </div>
     </div>
   );
@@ -175,10 +179,12 @@ const App: React.FC = () => {
       <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
       <div className="max-w-2xl space-y-6">
         <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
-          <div className="flex items-center gap-3 mb-6">
-            <SettingsIcon className="text-blue-400" />
-            <h3 className="text-lg font-medium text-white">General Configuration</h3>
-          </div>
+          <div className="flex items-center gap-3 mb-6"><SettingsIcon className="text-blue-400" /><h3 className="text-lg font-medium text-white">General Configuration</h3></div>
+        </div>
+        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
+            <div className="flex items-center gap-3 mb-4 text-amber-400"><AlertTriangle /><h3 className="text-lg font-medium">Data Management</h3></div>
+            <p className="text-sm text-slate-400 mb-4">Clearing local data will remove your chat history. Documents in the database are not affected.</p>
+            <button onClick={handleClearHistory} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 rounded-lg transition-colors text-sm font-medium">Clear Chat History</button>
         </div>
       </div>
     </div>
@@ -190,7 +196,7 @@ const App: React.FC = () => {
       
       <div className={`fixed inset-y-0 left-0 z-50 w-full sm:w-auto transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <Sidebar 
-          documents={filteredDocumentsForSidebar}
+          documents={filteredDocuments}
           onUpload={handleUpload} 
           isConnected={isConnected}
           activeView={activeView}
@@ -199,6 +205,10 @@ const App: React.FC = () => {
           onDelete={handleDeleteDocument}
           clientId={clientId}
           onClientIdChange={setClientId}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          filter={filter}
+          onFilterChange={setFilter}
         />
       </div>
 
