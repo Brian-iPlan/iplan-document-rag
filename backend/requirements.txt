@@ -1,0 +1,10 @@
+Flask
+Flask-Cors
+google-generativeai
+werkzeug
+pypdf
+python-docx
+markdown
+python-dotenv
+markdown-it-py
+gunicorn
