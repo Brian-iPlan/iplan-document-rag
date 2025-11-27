@@ -3,25 +3,18 @@ import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
-import { INITIAL_DOCUMENTS } from './constants';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
-import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [documents, setDocuments] = useState<DocumentItem[]>(INITIAL_DOCUMENTS);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
-  // New state for Client ID
   const [clientId, setClientId] = useState('CLIENT-001');
-
-  // Navigation & UI State
   const [activeView, setActiveView] = useState<ViewMode>('documents');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Fetch documents on mount
   useEffect(() => {
     const fetchDocs = async () => {
       try {
@@ -29,9 +22,7 @@ const App: React.FC = () => {
         setDocuments(docs);
         setIsConnected(true);
       } catch (err) {
-        // Backend failure
         console.error("Backend Connection Error:", err);
-        setIsConnected(false);
         setIsConnected(false);
       }
     };
@@ -50,7 +41,7 @@ const App: React.FC = () => {
         const optimisticDoc: DocumentItem = {
           id: tempId,
           name: file.name,
-          clientId: clientId, // Tag with current client ID
+          clientId: clientId,
           type: (file.name.split('.').pop() as any) || 'other',
           date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           status: 'indexing'
@@ -64,9 +55,7 @@ const App: React.FC = () => {
           setToast({ message: "Document uploaded successfully", type: 'success' });
           setIsConnected(true);
         } catch (error: any) {
-          setDocuments(prev => prev.map(d => 
-            d.id === tempId ? { ...d, status: 'error' } : d
-          ));
+          setDocuments(prev => prev.map(d => d.id === tempId ? { ...d, status: 'error' } : d));
           console.error("Upload failed", error);
           setIsConnected(false);
           setToast({ message: "Upload failed. Is the backend running?", type: 'error' });
@@ -100,20 +89,17 @@ const App: React.FC = () => {
       timestamp: new Date()
     };
     
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
+    setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
 
     try {
-      const responseText = await sendMessageToGemini(text, clientId, updatedMessages);
-      
+      const responseText = await sendMessageToGemini(text, clientId, messages);
       const botMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'model',
         text: responseText,
         timestamp: new Date()
       };
-      
       setMessages(prev => [...prev, botMsg]);
       setIsConnected(true);
     } catch (error: any) {
@@ -136,10 +122,7 @@ const App: React.FC = () => {
     setToast({ message: "Conversation history cleared", type: 'success' });
   };
 
-  // Filter documents shown in the sidebar by the current Client ID
-  const filteredDocumentsForSidebar = documents.filter(
-    doc => !clientId || !doc.clientId || doc.clientId === clientId
-  );
+  const filteredDocumentsForSidebar = documents.filter(doc => !clientId || doc.clientId === clientId);
 
   const DashboardView = () => ( <div className="flex-1 p-6"><h2 className="text-2xl font-bold">Dashboard</h2></div> );
   const SettingsView = () => ( <div className="flex-1 p-6"><h2 className="text-2xl font-bold">Settings</h2></div> );
@@ -155,7 +138,6 @@ const App: React.FC = () => {
           isConnected={isConnected}
           activeView={activeView}
           onViewChange={setActiveView}
-          onCloseMobile={() => setIsSidebarOpen(false)}
           onDelete={handleDeleteDocument}
           clientId={clientId}
           onClientIdChange={setClientId}

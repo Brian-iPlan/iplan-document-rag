@@ -3,14 +3,9 @@ import {
   LayoutDashboard, 
   Database, 
   Settings, 
-  User, 
-  Upload, 
-  Search, 
   FileText, 
-  FileCode, 
   AlertCircle, 
   File,
-  X,
   Loader2,
   Trash2
 } from 'lucide-react';
@@ -23,7 +18,6 @@ interface SidebarProps {
   isConnected: boolean;
   activeView: ViewMode;
   onViewChange: (view: ViewMode) => void;
-  onCloseMobile?: () => void;
   onDelete?: (id: string) => void;
   clientId: string;
   onClientIdChange: (id: string) => void;
@@ -37,27 +31,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   isConnected, 
   activeView, 
   onViewChange,
-  onCloseMobile,
   onDelete,
   clientId,
   onClientIdChange
 }) => {
-  const [filter, setFilter] = useState<'all' | 'active' | 'processing'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  
   // Preview State
   const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
   const [previewContent, setPreviewContent] = useState('');
-  const [loadingPreview, setLoadingPreview] = useState(false);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'text-emerald-400';
-      case 'indexing': return 'text-amber-400';
-      case 'error': return 'text-rose-400';
-      default: return 'text-slate-400';
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -78,18 +58,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleDocClick = async (doc: DocumentItem) => {
     setPreviewDoc(doc);
-    setLoadingPreview(true);
     try {
         const content = await getDocumentContent(doc.id);
         setPreviewContent(content);
     } catch (e) { setPreviewContent("Failed to load content."); }
-    finally { setLoadingPreview(false); }
   };
-
-  const filteredDocs = documents.filter(doc => 
-    doc.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-    (filter === 'all' || doc.status === filter)
-  );
 
   const NavButton = ({ view, icon: Icon }: { view: ViewMode, icon: any }) => (
     <button onClick={() => onViewChange(view)} className={`p-2 rounded-lg ${activeView === view ? 'bg-blue-600 text-white' : 'text-slate-400'}`}><Icon size={20} /></button>
@@ -122,7 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button onClick={onUpload} className="w-full mt-4 py-2 px-4 rounded-md bg-blue-600 text-white font-semibold">Upload Document</button>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
-          {filteredDocs.map((doc) => (
+          {documents.map((doc) => (
             <div key={doc.id} onClick={() => handleDocClick(doc)} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-800 cursor-pointer">
               {getFileIcon(doc.type)}
               <div className="flex-1 min-w-0">
@@ -135,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </div>
       </div>
-      {previewDoc && ( <div className="fixed inset-0"><div onClick={() => setPreviewDoc(null)}></div><div>...</div></div> )}
+      {previewDoc && ( <div className="fixed inset-0"><div onClick={() => setPreviewDoc(null)}></div><div>{previewContent}</div></div> )}
     </div>
   );
 };
