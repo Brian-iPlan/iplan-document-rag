@@ -11,7 +11,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [clientId, setClientId] = useState('CLIENT-001');
+  const [clientId, setClientId] = useState('CLIENT-001'); 
   const [activeView, setActiveView] = useState<ViewMode>('documents');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -138,6 +138,7 @@ const App: React.FC = () => {
           isConnected={isConnected}
           activeView={activeView}
           onViewChange={setActiveView}
+          onCloseMobile={() => setIsSidebarOpen(false)}
           onDelete={handleDeleteDocument}
           clientId={clientId}
           onClientIdChange={setClientId}
