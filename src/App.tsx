@@ -13,7 +13,7 @@ const App: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
-  const [clientId, setClientId] = useState('CLIENT-001');
+  const [clientId, setClientId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'processing'>('all');
 
@@ -35,6 +35,10 @@ const App: React.FC = () => {
   }, []);
 
   const handleUpload = useCallback(() => {
+    if (!clientId) {
+      setToast({ message: "Please enter a Client ID before uploading.", type: 'error' });
+      return;
+    }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.docx,.txt,.md,.csv';
@@ -46,7 +50,7 @@ const App: React.FC = () => {
         const optimisticDoc: DocumentItem = {
           id: tempId,
           name: file.name,
-          clientId: clientId, // This now has the latest clientId
+          clientId: clientId, 
           type: (file.name.split('.').pop() as any) || 'other',
           date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           status: 'indexing'
@@ -69,7 +73,7 @@ const App: React.FC = () => {
     };
     
     input.click();
-  }, [clientId]); // Dependency array ensures the function is fresh
+  }, [clientId]);
 
   const handleDeleteDocument = async (id: string) => {
     const prevDocs = documents;
@@ -87,6 +91,10 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (text: string) => {
+    if (!clientId) {
+      setToast({ message: "Please enter a Client ID to start a chat.", type: 'error' });
+      return;
+    }
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -129,7 +137,7 @@ const App: React.FC = () => {
 
   const filteredDocuments = documents.filter(doc => {
     const matchesClient = !clientId || doc.clientId === clientId;
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = !searchQuery || doc.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = 
       filter === 'all' ? true : 
       filter === 'active' ? doc.status === 'active' :
