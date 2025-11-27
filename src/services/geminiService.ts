@@ -1,6 +1,6 @@
 import type { ChatMessage, DocumentItem } from "../types";
 
-// This will be replaced by Vercel's environment variable
+// Use the VITE_API_BASE_URL from the .env file in development, or the Vercel environment variable in production.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const mapStatus = (status: string): 'active' | 'indexing' | 'error' => {
@@ -58,8 +58,7 @@ export const deleteDocument = async (id: string): Promise<void> => {
   });
 
   if (!response.ok) {
-    throw new Error('Deletion failed');
-  }
+    throw new Error('Deletion failed');n  }
 };
 
 export const sendMessageToGemini = async (message: string, history: ChatMessage[]): Promise<string> => {
