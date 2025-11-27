@@ -58,7 +58,8 @@ export const deleteDocument = async (id: string): Promise<void> => {
   });
 
   if (!response.ok) {
-    throw new Error('Deletion failed');n  }
+    throw new Error('Deletion failed');
+  }
 };
 
 export const sendMessageToGemini = async (message: string, history: ChatMessage[]): Promise<string> => {
