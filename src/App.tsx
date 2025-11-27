@@ -68,6 +68,7 @@ const App: React.FC = () => {
             d.id === tempId ? { ...d, status: 'error' } : d
           ));
           console.error("Upload failed", error);
+          setIsConnected(false);
           
           let errorMsg = "Upload failed. Is the Docker backend running at http://localhost:8000?";
           setToast({ message: errorMsg, type: 'error' });
@@ -90,6 +91,7 @@ const App: React.FC = () => {
         // Revert on failure
         setDocuments(prevDocs);
         console.error("Delete failed", error);
+        setIsConnected(false);
         setToast({ message: "Failed to delete document. Check backend.", type: 'error' });
     }
   };
@@ -121,6 +123,7 @@ const App: React.FC = () => {
       setMessages(prev => [...prev, botMsg]);
       setIsConnected(true);
     } catch (error: any) {
+      setIsConnected(false);
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'model',

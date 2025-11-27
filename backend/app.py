@@ -87,16 +87,16 @@ def upload_document_handler():
     }
     documents_db[doc_id] = doc_metadata
 
+    # No need to extract text for the prompt, but useful for preview
     text_content = extract_text(filepath)
-    if text_content is None:
-        documents_db[doc_id]['status'] = 'error'
-        return jsonify({"error": "Failed to extract text"}), 500
     documents_db[doc_id]['content'] = text_content
 
     try:
+        print(f"Uploading {filename} to Gemini File API...")
         gemini_file = genai.upload_file(path=filepath, display_name=filename)
         documents_db[doc_id]['gemini_name'] = gemini_file.name
         documents_db[doc_id]['status'] = 'active'
+        print(f"Upload successful. Gemini Name: {gemini_file.name}")
     except Exception as e:
         documents_db[doc_id]['status'] = 'error'
         print(f"Gemini API upload failed: {e}")
@@ -109,10 +109,10 @@ def delete_document_handler(doc_id):
     doc = documents_db.pop(doc_id, None)
     if doc and doc.get('gemini_name'):
         try:
+            print(f"Deleting {doc['gemini_name']} from Gemini...")
             genai.delete_file(doc['gemini_name'])
         except Exception as e:
             print(f"Failed to delete file from Gemini: {e}")
-            # Even if Gemini deletion fails, we proceed with local removal
     return jsonify({"message": "Document deleted"}), 200
 
 @app.route('/documents', methods=['GET'])
@@ -124,6 +124,7 @@ def get_document_content_handler(doc_id):
     doc = documents_db.get(doc_id)
     if not doc:
         return jsonify({"error": "Document not found"}), 404
+    # Return the text we extracted earlier for preview
     return jsonify({"id": doc_id, "content": doc.get('content', "No content available.")})
 
 @app.route('/chat', methods=['POST'])
@@ -133,15 +134,22 @@ def chat_handler():
         return jsonify({"error": "Invalid request"}), 400
 
     user_message = data['message']
-    context_files = [genai.get_file(name=doc['gemini_name']) for doc in documents_db.values() if doc['status'] == 'active' and doc['gemini_name']]
+    
+    # Get the file objects from Gemini for all active documents
+    context_files = []
+    for doc in documents_db.values():
+        if doc['status'] == 'active' and doc['gemini_name']:
+            context_files.append(genai.get_file(name=doc['gemini_name']))
 
-    model_prompt = [user_message, *context_files]
+    model_prompt = [
+        user_message,
+        *context_files
+    ]
 
     try:
         model = genai.GenerativeModel(model_name='models/gemini-pro-latest')
         response = model.generate_content(model_prompt)
         
-        # Convert Markdown to HTML
         md = MarkdownIt()
         html_response = md.render(response.text)
         

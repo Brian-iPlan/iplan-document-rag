@@ -1,8 +1,7 @@
 import type { ChatMessage, DocumentItem } from "../types";
 
-// Configuration for the Dockerized Gemini File Search Service
-// NOTE: This must match the port your Docker container is mapped to (usually 8000)
-const API_BASE_URL = 'http://localhost:8000';
+// This will be replaced by Vercel's environment variable
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const mapStatus = (status: string): 'active' | 'indexing' | 'error' => {
   const s = (status || '').toLowerCase();
@@ -18,9 +17,9 @@ export const getDocuments = async (): Promise<DocumentItem[]> => {
   }
   const data = await response.json();
   return data.map((doc: any) => ({
-    id: doc.id || Math.random().toString(36).substr(2, 9),
+    id: doc.id,
     name: doc.name || 'Untitled Document',
-    type: doc.type || 'other',
+    type: doc.type || 'other', 
     date: doc.date || new Date().toLocaleDateString(),
     status: mapStatus(doc.status),
     size: doc.size
@@ -33,7 +32,7 @@ export const getDocumentContent = async (id: string): Promise<string> => {
     throw new Error('Backend unreachable');
   }
   const data = await response.json();
-  return data.content || data.text || "No text content available for this document.";
+  return data.content || "No text content available for this document.";
 };
 
 export const uploadDocument = async (file: File): Promise<DocumentItem> => {
@@ -50,10 +49,7 @@ export const uploadDocument = async (file: File): Promise<DocumentItem> => {
   }
 
   const doc = await response.json();
-  return {
-    ...doc,
-    status: mapStatus(doc.status)
-  };
+  return { ...doc, status: mapStatus(doc.status) };
 };
 
 export const deleteDocument = async (id: string): Promise<void> => {
@@ -62,25 +58,17 @@ export const deleteDocument = async (id: string): Promise<void> => {
   });
 
   if (!response.ok) {
-    throw new Error('Delete failed');
+    throw new Error('Deletion failed');
   }
 };
 
-export const sendMessageToGemini = async (
-  message: string,
-  history: ChatMessage[]
-): Promise<string> => {
+export const sendMessageToGemini = async (message: string, history: ChatMessage[]): Promise<string> => {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message,
-      history: history.map(msg => ({
-        role: msg.role,
-        content: msg.text,
-      })),
+      history: history.map(msg => ({ role: msg.role, content: msg.text })),
     }),
   });
 
@@ -89,5 +77,5 @@ export const sendMessageToGemini = async (
   }
 
   const data = await response.json();
-  return data.response || data.text || data.html || data.answer || "No response content from server.";
+  return data.response || "No response from server.";
 };
