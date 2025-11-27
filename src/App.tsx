@@ -4,6 +4,7 @@ import ChatInterface from './components/ChatInterface';
 import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
+import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -11,7 +12,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [clientId, setClientId] = useState('CLIENT-001'); 
+  const [clientId, setClientId] = useState('CLIENT-001');
   const [activeView, setActiveView] = useState<ViewMode>('documents');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -124,8 +125,64 @@ const App: React.FC = () => {
 
   const filteredDocumentsForSidebar = documents.filter(doc => !clientId || doc.clientId === clientId);
 
-  const DashboardView = () => ( <div className="flex-1 p-6"><h2 className="text-2xl font-bold">Dashboard</h2></div> );
-  const SettingsView = () => ( <div className="flex-1 p-6"><h2 className="text-2xl font-bold">Settings</h2></div> );
+  const DashboardView = () => (
+    <div className="flex-1 overflow-y-auto p-6 bg-[#0f172a] text-slate-200">
+      <h2 className="text-2xl font-bold text-white mb-6">Dashboard Overview</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-3 bg-blue-600/20 rounded-lg text-blue-400"><Database size={24} /></div>
+            <span className="text-xs font-medium text-slate-400 bg-slate-800 px-2 py-1 rounded">Total</span>
+          </div>
+          <h3 className="text-3xl font-bold text-white mb-1">{documents.length}</h3>
+          <p className="text-sm text-slate-400">Documents Indexed</p>
+        </div>
+        
+        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-3 bg-emerald-500/20 rounded-lg text-emerald-400"><HardDrive size={24} /></div>
+            <span className="text-xs font-medium text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded">Online</span>
+          </div>
+          <h3 className="text-3xl font-bold text-white mb-1">{isConnected ? 'Active' : 'Offline'}</h3>
+          <p className="text-sm text-slate-400">System Status</p>
+        </div>
+
+        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-3 bg-purple-500/20 rounded-lg text-purple-400"><Cpu size={24} /></div>
+            <span className="text-xs font-medium text-slate-400 bg-slate-800 px-2 py-1 rounded">Model</span>
+          </div>
+          <h3 className="text-3xl font-bold text-white mb-1">Gemini Pro</h3>
+          <p className="text-sm text-slate-400">Active Model</p>
+        </div>
+      </div>
+
+      <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-8 text-center">
+        <div className="inline-block p-4 rounded-full bg-slate-800 mb-4 text-slate-400">
+          <BarChart3 size={48} />
+        </div>
+        <h3 className="text-lg font-medium text-white mb-2">Analytics Coming Soon</h3>
+        <p className="text-slate-400 max-w-md mx-auto">
+          Detailed document analytics and usage insights will be available in a future update.
+        </p>
+      </div>
+    </div>
+  );
+
+  const SettingsView = () => (
+    <div className="flex-1 overflow-y-auto p-6 bg-[#0f172a] text-slate-200">
+      <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
+      <div className="max-w-2xl space-y-6">
+        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
+          <div className="flex items-center gap-3 mb-6">
+            <SettingsIcon className="text-blue-400" />
+            <h3 className="text-lg font-medium text-white">General Configuration</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#0f172a]">

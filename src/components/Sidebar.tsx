@@ -29,7 +29,22 @@ interface SidebarProps {
   onClientIdChange: (id: string) => void;
 }
 
-const AppLogo = () => ( <div className="w-8 h-8 rounded-lg"><svg viewBox='0 0 24 24'><path d='M...'/></svg></div> );
+const AppLogo = () => (
+  <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 mb-2 relative group">
+    <img 
+      src="/logo.png" 
+      alt="Logo" 
+      className="w-full h-full object-cover"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+      }} 
+    />
+    <div className="hidden w-full h-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 absolute inset-0">
+       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+    </div>
+  </div>
+);
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   documents, 
@@ -118,7 +133,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="flex h-full bg-[#1e293b] border-r border-slate-700/50">
-      {/* Navigation Rail */}
       <div className="w-16 flex flex-col items-center py-6 gap-6 bg-[#0f172a] border-r border-slate-800 shrink-0 z-20">
         <AppLogo />
         
@@ -141,7 +155,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Sidebar Content */}
       <div className="flex-1 flex flex-col w-[280px] sm:w-[300px]">
         {onCloseMobile && <div className="md:hidden flex justify-end p-2">
             <button onClick={onCloseMobile} className="p-2 text-slate-400 hover:text-white">
