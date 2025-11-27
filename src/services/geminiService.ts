@@ -18,10 +18,11 @@ export const getDocumentContent = async (id: string): Promise<string> => {
   return data.content || "No content available.";
 };
 
-export const uploadDocument = async (file: File, clientId: string): Promise<DocumentItem> => {
+export const uploadDocument = async (file: File, clientId: string, newName: string): Promise<DocumentItem> => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('clientId', clientId);
+  formData.append('newName', newName);
 
   const response = await fetch(`${API_BASE_URL}/documents`, { method: 'POST', body: formData });
   if (!response.ok) throw new Error('Upload failed');

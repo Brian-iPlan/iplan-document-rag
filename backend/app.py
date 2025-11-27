@@ -69,17 +69,18 @@ def upload_document_handler():
         return jsonify({"error": "No file part"}), 400
     file = request.files['file']
     clientId = request.form.get('clientId')
-    if file.filename == '' or not allowed_file(file.filename):
-        return jsonify({"error": "Invalid or no selected file"}), 400
+    newName = request.form.get('newName')
+    if not all([file, clientId, newName]) or not allowed_file(file.filename):
+        return jsonify({"error": "Invalid request"}), 400
 
-    filename = secure_filename(file.filename)
+    filename = secure_filename(newName) # Use the new prefixed name
     doc_id = str(uuid.uuid4())
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{doc_id}_{filename}")
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{doc_id}_{file.filename}") # Save with original name to avoid confusion
     file.save(filepath)
 
     doc_metadata = {
         "id": doc_id,
-        "name": filename,
+        "name": filename, # Store the new name
         "clientId": clientId,
         "type": filename.rsplit('.', 1)[1].lower(),
         "date": "Just now",
@@ -93,7 +94,7 @@ def upload_document_handler():
     documents_db[doc_id]['content'] = text_content
 
     try:
-        gemini_file = genai.upload_file(path=filepath, display_name=f"{clientId}_{filename}")
+        gemini_file = genai.upload_file(path=filepath, display_name=filename)
         documents_db[doc_id]['gemini_name'] = gemini_file.name
         documents_db[doc_id]['status'] = 'active'
     except Exception as e:

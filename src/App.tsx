@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
+  // State lifted up from Sidebar
   const [clientId, setClientId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'processing'>('all');
@@ -47,9 +48,10 @@ const App: React.FC = () => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const tempId = Date.now().toString();
+        const newName = `${clientId}_${file.name}`;
         const optimisticDoc: DocumentItem = {
           id: tempId,
-          name: file.name,
+          name: newName,
           clientId: clientId, 
           type: (file.name.split('.').pop() as any) || 'other',
           date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
@@ -59,7 +61,7 @@ const App: React.FC = () => {
         setDocuments(prev => [optimisticDoc, ...prev]);
 
         try {
-          const uploadedDoc = await uploadDocument(file, clientId);
+          const uploadedDoc = await uploadDocument(file, clientId, newName);
           setDocuments(prev => prev.map(d => d.id === tempId ? uploadedDoc : d));
           setToast({ message: "Document uploaded successfully", type: 'success' });
           setIsConnected(true);
@@ -135,9 +137,10 @@ const App: React.FC = () => {
     setToast({ message: "Conversation history cleared", type: 'success' });
   };
 
+  // Combined filtering logic now lives in the parent component
   const filteredDocuments = documents.filter(doc => {
     const matchesClient = !clientId || doc.clientId === clientId;
-    const matchesSearch = !searchQuery || doc.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = !searchQuery || doc.name.toLowerCase().startsWith(searchQuery.toLowerCase());
     const matchesFilter = 
       filter === 'all' ? true : 
       filter === 'active' ? doc.status === 'active' :
