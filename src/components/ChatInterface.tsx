@@ -54,24 +54,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   const handleExportChat = () => {
-    const plainText = messages.map(msg => {
-      const role = msg.role === 'user' ? 'User' : 'AI Assistant';
-      const timestamp = msg.timestamp.toLocaleString();
-      // Use a nullish coalescing operator to prevent errors on empty messages
-      const text = (msg.text || '').replace(/<[^>]*>?/gm, '');
-      return `[${timestamp}] ${role}:\n${text}\n\n`;
-    }).join('---\n');
+    try {
+      const plainText = messages.map(msg => {
+        if (!msg) return "[Invalid Message]\n"; // Guard for corrupted message entries
+        
+        const role = msg.role === 'user' ? 'User' : 'AI Assistant';
+        
+        // Robustly handle timestamp
+        const timestamp = (msg.timestamp instanceof Date)
+          ? msg.timestamp.toLocaleString()
+          : "[unknown time]";
 
-    const blob = new Blob([plainText], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `iPlan_Chat_Export_${new Date().toISOString().slice(0,10)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setShowOptions(false);
+        const text = (msg.text || '').replace(/<[^>]*>?/gm, '');
+        return `[${timestamp}] ${role}:\n${text}\n\n`;
+      }).join('---\n');
+
+      const blob = new Blob([plainText], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `iPlan_Chat_Export_${new Date().toISOString().slice(0,10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setShowOptions(false);
+    } catch (error) {
+      console.error("Chat export failed:", error);
+      setShowOptions(false);
+    }
   };
 
   return (
