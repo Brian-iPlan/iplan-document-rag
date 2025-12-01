@@ -4,7 +4,7 @@ import ChatInterface from './components/ChatInterface';
 import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
-import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X } from 'lucide-react';
+import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X, Users } from 'lucide-react';
 
 const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewMode>('documents');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
+  const [showClientsModal, setShowClientsModal] = useState(false);
 
   useEffect(() => {
     const fetchDocs = async () => {
@@ -149,6 +150,7 @@ const App: React.FC = () => {
 
   const DashboardView = () => {
     const activeDocs = documents.filter(d => d.status === 'active');
+    const uniqueClientIds = [...new Set(documents.map(doc => doc.clientId))].filter(Boolean); // Filter out empty/null IDs
 
     return (
       <div className="flex-1 overflow-y-auto p-6 bg-[#0f172a] text-slate-200">
@@ -163,11 +165,12 @@ const App: React.FC = () => {
             <p className="text-sm text-slate-400">Active Documents</p>
           </div>
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
-            <div className="flex justify-between items-start mb-4">
-              <div className="p-3 bg-emerald-500/20 rounded-lg text-emerald-400"><HardDrive size={24} /></div>
+            <div className="flex justify-between items-start mb-2">
+              <div className="p-3 bg-green-600/20 rounded-lg text-green-400"><Users size={24} /></div>
+              <button onClick={() => setShowClientsModal(true)} className="text-xs font-medium text-blue-400 hover:underline">View</button>
             </div>
-            <h3 className="text-3xl font-bold text-white mb-1">{isConnected ? 'Online' : 'Offline'}</h3>
-            <p className="text-sm text-slate-400">System Status</p>
+            <h3 className="text-3xl font-bold text-white mb-1">{uniqueClientIds.length}</h3>
+            <p className="text-sm text-slate-400">Client IDs</p>
           </div>
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
             <div className="flex justify-between items-start mb-4">
@@ -226,6 +229,33 @@ const App: React.FC = () => {
     );
   };
 
+  const ClientIDsModal = ({ documents, onClose, onSelect }: { documents: DocumentItem[], onClose: () => void, onSelect: (clientId: string) => void }) => {
+    const uniqueClientIds = [...new Set(documents.map(doc => doc.clientId))].filter(Boolean);
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+          <div 
+              className="bg-[#1e293b] border border-slate-700 w-full max-w-md max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
+              onClick={e => e.stopPropagation()}
+          >
+              <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                  <h3 className="font-semibold text-lg text-slate-100">Select a Client ID ({uniqueClientIds.length})</h3>
+                  <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"><X size={20} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 text-slate-300 space-y-2 custom-scrollbar">
+                {uniqueClientIds.length > 0 ? (
+                  uniqueClientIds.map(id => 
+                    <button key={id} onClick={() => onSelect(id!)} className="w-full text-left p-3 bg-slate-800/50 border border-slate-700/50 rounded-md text-sm hover:bg-slate-700/50 transition-colors">{id}</button>
+                  )
+                ) : (
+                  <p>No Client IDs found. Upload a document to get started.</p>
+                )}
+              </div>
+          </div>
+      </div>
+    );
+  };
+
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#0f172a]">
       {isSidebarOpen && <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsSidebarOpen(false)} />}
@@ -264,6 +294,15 @@ const App: React.FC = () => {
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {showDocsModal && <ActiveDocumentsModal documents={documents} onClose={() => setShowDocsModal(false)} />}
+      {showClientsModal && 
+        <ClientIDsModal 
+          documents={documents} 
+          onClose={() => setShowClientsModal(false)} 
+          onSelect={(id) => {
+            setClientId(id);
+            setShowClientsModal(false);
+          }}
+        />}
     </div>
   );
 };
