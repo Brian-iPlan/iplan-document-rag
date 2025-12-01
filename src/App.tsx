@@ -23,6 +23,8 @@ const App: React.FC = () => {
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [showClientsModal, setShowClientsModal] = useState(false);
   const [showCostModal, setShowCostModal] = useState(false);
+  const [showCostExampleModal, setShowCostExampleModal] = useState(false);
+  const [costExampleContent, setCostExampleContent] = useState('');
 
   useEffect(() => {
     const fetchDocs = async () => {
@@ -140,6 +142,18 @@ const App: React.FC = () => {
     setToast({ message: "Conversation history cleared", type: 'success' });
   };
 
+  const handleShowCostExample = async () => {
+    try {
+      const response = await fetch('/cost_example.txt');
+      const text = await response.text();
+      setCostExampleContent(text);
+      setShowCostExampleModal(true);
+    } catch (error) {
+      console.error("Failed to fetch cost example:", error);
+      setToast({ message: "Could not load cost example.", type: 'error' });
+    }
+  };
+
   const filteredDocuments = documents.filter(doc => {
     const matchesClient = !clientId || doc.clientId === clientId;
     const matchesSearch = !searchQuery || doc.name.toLowerCase().startsWith(searchQuery.toLowerCase());
@@ -177,7 +191,10 @@ const App: React.FC = () => {
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
             <div className="flex justify-between items-start mb-2">
               <div className="p-3 bg-purple-500/20 rounded-lg text-purple-400"><Cpu size={24} /></div>
-              <button onClick={() => setShowCostModal(true)} className="text-xs font-medium text-blue-400 hover:underline">Cost Info</button>
+              <div className="flex flex-col items-end gap-1">
+                <button onClick={() => setShowCostModal(true)} className="text-xs font-medium text-blue-400 hover:underline">Cost Info</button>
+                <button onClick={handleShowCostExample} className="text-xs font-medium text-blue-400 hover:underline">Example</button>
+              </div>
             </div>
             <h3 className="text-3xl font-bold text-white mb-1">Gemini Pro</h3>
             <p className="text-sm text-slate-400">Active Model</p>
@@ -312,6 +329,13 @@ const App: React.FC = () => {
             <p>This application is currently configured to use the free tiers of Vercel and Render. For detailed and up-to-date pricing for the AI model, please refer to the official Google Cloud pricing page.</p>
             <a href="https://cloud.google.com/vertex-ai/generative-ai/pricing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">View Google AI Pricing</a>
           </div>
+        </Modal>
+      }
+      {showCostExampleModal && 
+        <Modal title="Example Cost Calculation" onClose={() => setShowCostExampleModal(false)}>
+          <pre className="whitespace-pre-wrap font-mono text-sm text-slate-300 leading-relaxed">
+            {costExampleContent}
+          </pre>
         </Modal>
       }
     </div>

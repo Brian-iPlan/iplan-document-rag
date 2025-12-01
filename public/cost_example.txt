@@ -1,0 +1,34 @@
+This is a back-of-the-envelope calculation. The actual cost will vary based on the exact content of your document and the complexity of your questions.
+
+ASSUMPTIONS:
+1. Document Size: A 25-page legal document has roughly 12,500 words.
+2. Token Conversion: 1,000 tokens is about 750 words. Your 12,500-word document is approximately 17,000 tokens.
+3. API Pricing (example, check official page for current rates):
+   - Input Price: ~$0.000125 per 1,000 tokens
+   - Output Price: ~$0.000375 per 1,000 tokens
+
+---
+
+COST BREAKDOWN:
+
+1. One-Time Ingestion (Uploading):
+The cost for the initial file upload and indexing is negligible or zero. You are not charged a recurring fee for simply storing the file.
+
+2. Per-Question Cost (The Main Cost):
+For every question, you are charged for both the INPUT (your question + relevant text chunks retrieved by the model) and the OUTPUT (the AI's answer).
+
+Example Calculation for a Typical Query:
+- Input per question: Let's say your question is 20 words and the model retrieves 500 words of relevant context. This is roughly 700 input tokens.
+- Output per question: Let's assume the AI provides a detailed 200-word answer. This is roughly 270 output tokens.
+
+- Input Cost: (700 / 1000) * $0.000125 = $0.0000875
+- Output Cost: (270 / 1000) * $0.000375 = $0.00010125
+- Total per question: ~$0.00019
+
+---
+
+BOTTOM LINE:
+- You could ask over 5,000 detailed questions about your 25-page document for approximately $1.00.
+- A deep-dive session with 100 questions would cost less than 2 cents.
+
+The key takeaway is that because the File API is smart enough to only use the relevant parts of the document for each query, the cost per question remains extremely low.
