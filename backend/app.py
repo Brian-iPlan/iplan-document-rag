@@ -43,20 +43,16 @@ def rehydrate_db_from_gemini():
     print("--- Rehydrating database from Gemini File API ---")
     try:
         for file in genai.list_files():
-            # Attempt to parse clientId and name from the display_name
             if '_' in file.display_name:
                 parts = file.display_name.split('_', 1)
                 client_id = parts[0]
-                original_name = parts[1]
-
-                # Use Gemini file's unique name as the primary key for our DB
                 doc_id = file.name 
 
                 doc_metadata = {
                     "id": doc_id,
-                    "name": original_name,
+                    "name": file.display_name, # Use the full, correct name
                     "clientId": client_id,
-                    "type": original_name.rsplit('.', 1)[1].lower() if '.' in original_name else 'other',
+                    "type": file.display_name.rsplit('.', 1)[1].lower() if '.' in file.display_name else 'other',
                     "date": file.create_time.strftime('%b %d, %Y'),
                     "status": 'active',
                     "content": "Content is not stored in memory for rehydrated files.",
@@ -82,29 +78,27 @@ def upload_document_handler():
     if not all([file, clientId]) or not allowed_file(file.filename):
         return jsonify({"error": "Invalid request"}), 400
 
-    # Create a new unique name for the file to be displayed
     newName = f"{clientId}_{file.filename}"
 
-    filename = secure_filename(file.filename) # Keep original for saving
-    doc_id = str(uuid.uuid4()) # Temp ID for saving
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{doc_id}_{filename}")
+    temp_filename = secure_filename(file.filename)
+    doc_id = str(uuid.uuid4())
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{doc_id}_{temp_filename}")
     file.save(filepath)
 
     try:
         print(f"Uploading {newName} to Gemini File API...")
         gemini_file = genai.upload_file(path=filepath, display_name=newName)
         
-        # Use the permanent Gemini ID as the key from now on
         final_doc_id = gemini_file.name 
 
         doc_metadata = {
             "id": final_doc_id,
-            "name": file.filename, # Show original name in UI
+            "name": newName, # Return the new, prefixed name
             "clientId": clientId,
-            "type": filename.rsplit('.', 1)[1].lower(),
+            "type": temp_filename.rsplit('.', 1)[1].lower(),
             "date": datetime.datetime.now().strftime('%b %d, %Y'),
             "status": 'active',
-            "content": "", # We can extract preview text if needed
+            "content": "",
             "gemini_name": gemini_file.name
         }
         documents_db[final_doc_id] = doc_metadata
@@ -114,6 +108,10 @@ def upload_document_handler():
     except Exception as e:
         print(f"Gemini API upload failed: {e}")
         return jsonify({"error": str(e)}), 500
+    finally:
+        # Clean up the temp file
+        if os.path.exists(filepath):
+            os.remove(filepath)
 
 @app.route('/documents/<path:doc_id>', methods=['DELETE'])
 def delete_document_handler(doc_id):
@@ -132,7 +130,6 @@ def get_documents_list_handler():
 
 @app.route('/documents/<path:doc_id>', methods=['GET'])
 def get_document_content_handler(doc_id):
-    # This is for preview, so we need to fetch and extract text on demand
     doc = documents_db.get(doc_id)
     if not doc:
         return jsonify({"error": "Document not found"}), 404
