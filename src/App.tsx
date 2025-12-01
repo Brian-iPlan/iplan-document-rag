@@ -4,6 +4,7 @@ import ChatInterface from './components/ChatInterface';
 import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
+import { API_BASE_URL } from './config'; // Import the constant
 import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X, Users } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -150,7 +151,7 @@ const App: React.FC = () => {
 
   const DashboardView = () => {
     const activeDocs = documents.filter(d => d.status === 'active');
-    const uniqueClientIds = [...new Set(documents.map(doc => doc.clientId))].filter(Boolean); // Filter out empty/null IDs
+    const uniqueClientIds = [...new Set(documents.map(doc => doc.clientId))].filter(Boolean);
 
     return (
       <div className="flex-1 overflow-y-auto p-6 bg-[#0f172a] text-slate-200">
@@ -195,6 +196,26 @@ const App: React.FC = () => {
       <div className="max-w-2xl space-y-6">
         <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
           <div className="flex items-center gap-3 mb-6"><SettingsIcon className="text-blue-400" /><h3 className="text-lg font-medium text-white">General Configuration</h3></div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">AI Service Endpoint</label>
+              <input 
+                type="text" 
+                value={API_BASE_URL}
+                readOnly
+                className="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Active AI Model</label>
+              <input 
+                type="text" 
+                value="models/gemini-pro-latest"
+                readOnly
+                className="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none"
+              />
+            </div>
+          </div>
         </div>
         <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
             <div className="flex items-center gap-3 mb-4 text-amber-400"><AlertTriangle /><h3 className="text-lg font-medium">Data Management</h3></div>
