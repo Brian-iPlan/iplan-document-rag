@@ -53,6 +53,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     e.target.style.height = `${e.target.scrollHeight}px`;
   };
 
+  const handleExportChat = () => {
+    const plainText = messages.map(msg => {
+      const role = msg.role === 'user' ? 'User' : 'AI Assistant';
+      const timestamp = msg.timestamp.toLocaleString();
+      // Basic strip of HTML for plain text export
+      const text = msg.text.replace(/<[^>]*>?/gm, '');
+      return `[${timestamp}] ${role}:\n${text}\n\n`;
+    }).join('---\n');
+
+    const blob = new Blob([plainText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `iPlan_Chat_Export_${new Date().toISOString().slice(0,10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setShowOptions(false);
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-[#0f172a] relative h-full w-full">
       {/* Header */}
@@ -94,6 +115,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         Clear Conversation
                     </button>
                     <button 
+                        onClick={handleExportChat}
                         className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 flex items-center gap-2 border-t border-slate-700/50"
                     >
                         <Download size={16} />
