@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Paperclip, MoreVertical, History, Bot, Loader2, Sparkles, Menu, Trash2, Download } from 'lucide-react';
+import { Send, Paperclip, MoreVertical, History, Bot, Loader2, Sparkles, Menu, Trash2, Download, X, User as UserIcon } from 'lucide-react';
 import type { ChatMessage } from '../types';
 
 interface ChatInterfaceProps {
@@ -14,11 +14,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages, 
   isLoading, 
   onSendMessage, 
-  onToggleSidebar,
+  onToggleSidebar, 
   onClearHistory 
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [showOptions, setShowOptions] = useState(false);
+  const [showGuidance, setShowGuidance] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -53,7 +54,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0f172a] relative h-full">
+    <div className="flex-1 flex flex-col bg-[#0f172a] relative h-full w-full">
       {/* Header */}
       <div className="h-16 border-b border-slate-800 flex items-center justify-between px-4 sm:px-6 bg-[#0f172a]/80 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-3">
@@ -101,7 +102,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
             )}
           </div>
-          {/* Backdrop for dropdown */}
           {showOptions && <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)} />}
         </div>
       </div>
@@ -115,9 +115,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <Bot className="text-blue-400 w-8 h-8" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Welcome!</h2>
-            <p className="text-slate-400 text-center max-w-md mb-10">
+            <p className="text-slate-400 text-center max-w-md mb-8">
               Upload a document and ask me anything. I can help you analyse, summarise, and extract information.
             </p>
+            <button onClick={() => setShowGuidance(true)} className="text-sm font-medium text-blue-400 hover:text-blue-300 hover:underline">
+                View User Guidance
+            </button>
           </div>
         ) : (
           // Message List
@@ -143,9 +146,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   {msg.role === 'user' ? (
                     <div className="whitespace-pre-wrap">{msg.text}</div>
                   ) : (
-                    /* Allow HTML rendering for model responses (images, tables) */
                     <div 
-                      className="chat-content prose prose-invert max-w-none break-words prose-p:mb-4 [&>img]:rounded-lg [&>img]:max-w-full [&>img]:shadow-lg"
+                      className="chat-content prose prose-invert max-w-none break-words prose-p:my-0 [&>p]:mb-4 last:[&>p]:mb-0 [&>img]:rounded-lg [&>img]:max-w-full [&>img]:shadow-lg"
                       dangerouslySetInnerHTML={{ __html: msg.text }} 
                     />
                   )}
@@ -209,16 +211,34 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           AI can make mistakes. Please verify important information.
         </p>
       </div>
+
+      {/* User Guidance Modal */}
+      {showGuidance && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowGuidance(false)}>
+            <div 
+                className="bg-[#1e293b] border border-slate-700 w-full max-w-lg rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                    <h3 className="font-semibold text-lg text-slate-100">User Guidance</h3>
+                    <button 
+                        onClick={() => setShowGuidance(false)}
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="p-6 text-slate-300 space-y-4 prose prose-invert max-w-none prose-p:my-0">
+                    <p><strong>1. Client Documents:</strong> When uploading a new document for a Client please use the FSA registration as the client ID.</p>
+                    <p><strong>2. Regulatory Documents:</strong> For other regulatory documents use "Regs" as the Client ID.</p>
+                    <p><strong>3. Querying:</strong> When querying a document please make your question as specific as possible to enable more precise answers.</p>
+                    <p><strong>4. View Full Name:</strong> Click on a document in the sidebar to see its full name in the preview pane.</p>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };
-
-const UserIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="12" fill="#475569"/>
-    <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" fill="#CBD5E1"/>
-    <path d="M12 13C7.58172 13 4 16.5817 4 21H20C20 16.5817 16.4183 13 12 13Z" fill="#CBD5E1"/>
-  </svg>
-);
 
 export default ChatInterface;

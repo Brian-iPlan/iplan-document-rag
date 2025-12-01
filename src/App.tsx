@@ -13,7 +13,6 @@ const App: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
-  // State lifted up from Sidebar
   const [clientId, setClientId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'processing'>('all');
@@ -94,7 +93,7 @@ const App: React.FC = () => {
 
   const handleSendMessage = async (text: string) => {
     if (!clientId) {
-      setToast({ message: "Please enter a Client ID to start a chat.", type: 'error' });
+      setToast({ message: "Please enter a Client ID in the field above to start a chat", type: 'error' });
       return;
     }
     const userMsg: ChatMessage = {
@@ -137,7 +136,6 @@ const App: React.FC = () => {
     setToast({ message: "Conversation history cleared", type: 'success' });
   };
 
-  // Combined filtering logic now lives in the parent component
   const filteredDocuments = documents.filter(doc => {
     const matchesClient = !clientId || doc.clientId === clientId;
     const matchesSearch = !searchQuery || doc.name.toLowerCase().startsWith(searchQuery.toLowerCase());
