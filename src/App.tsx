@@ -4,7 +4,7 @@ import ChatInterface from './components/ChatInterface';
 import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
-import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
+import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -19,6 +19,7 @@ const App: React.FC = () => {
 
   const [activeView, setActiveView] = useState<ViewMode>('documents');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showDocsModal, setShowDocsModal] = useState(false);
 
   useEffect(() => {
     const fetchDocs = async () => {
@@ -146,42 +147,44 @@ const App: React.FC = () => {
     return matchesClient && matchesSearch && matchesFilter;
   });
 
-  const DashboardView = () => (
-    <div className="flex-1 overflow-y-auto p-6 bg-[#0f172a] text-slate-200">
-      <h2 className="text-2xl font-bold text-white mb-6">Dashboard Overview</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-blue-600/20 rounded-lg text-blue-400"><Database size={24} /></div>
-            <span className="text-xs font-medium text-slate-400 bg-slate-800 px-2 py-1 rounded">Total</span>
+  const DashboardView = () => {
+    const activeDocs = documents.filter(d => d.status === 'active');
+
+    return (
+      <div className="flex-1 overflow-y-auto p-6 bg-[#0f172a] text-slate-200">
+        <h2 className="text-2xl font-bold text-white mb-6">Dashboard Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
+            <div className="flex justify-between items-start mb-2">
+              <div className="p-3 bg-blue-600/20 rounded-lg text-blue-400"><Database size={24} /></div>
+              <button onClick={() => setShowDocsModal(true)} className="text-xs font-medium text-blue-400 hover:underline">View All</button>
+            </div>
+            <h3 className="text-3xl font-bold text-white mb-1">{activeDocs.length}</h3>
+            <p className="text-sm text-slate-400">Active Documents</p>
           </div>
-          <h3 className="text-3xl font-bold text-white mb-1">{documents.length}</h3>
-          <p className="text-sm text-slate-400">Documents Indexed</p>
+          <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 bg-emerald-500/20 rounded-lg text-emerald-400"><HardDrive size={24} /></div>
+            </div>
+            <h3 className="text-3xl font-bold text-white mb-1">{isConnected ? 'Online' : 'Offline'}</h3>
+            <p className="text-sm text-slate-400">System Status</p>
+          </div>
+          <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 bg-purple-500/20 rounded-lg text-purple-400"><Cpu size={24} /></div>
+            </div>
+            <h3 className="text-3xl font-bold text-white mb-1">Gemini Pro</h3>
+            <p className="text-sm text-slate-400">Active Model</p>
+          </div>
         </div>
-        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-emerald-500/20 rounded-lg text-emerald-400"><HardDrive size={24} /></div>
-            <span className="text-xs font-medium text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded">Online</span>
-          </div>
-          <h3 className="text-3xl font-bold text-white mb-1">{isConnected ? 'Active' : 'Offline'}</h3>
-          <p className="text-sm text-slate-400">System Status</p>
-        </div>
-        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-purple-500/20 rounded-lg text-purple-400"><Cpu size={24} /></div>
-            <span className="text-xs font-medium text-slate-400 bg-slate-800 px-2 py-1 rounded">Model</span>
-          </div>
-          <h3 className="text-3xl font-bold text-white mb-1">Gemini Pro</h3>
-          <p className="text-sm text-slate-400">Active Model</p>
+        <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-8 text-center">
+          <div className="inline-block p-4 rounded-full bg-slate-800 mb-4 text-slate-400"><BarChart3 size={48} /></div>
+          <h3 className="text-lg font-medium text-white mb-2">Analytics Coming Soon</h3>
+          <p className="text-slate-400 max-w-md mx-auto">Detailed document analytics and usage insights will be available in a future update.</p>
         </div>
       </div>
-      <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-8 text-center">
-        <div className="inline-block p-4 rounded-full bg-slate-800 mb-4 text-slate-400"><BarChart3 size={48} /></div>
-        <h3 className="text-lg font-medium text-white mb-2">Analytics Coming Soon</h3>
-        <p className="text-slate-400 max-w-md mx-auto">Detailed document analytics and usage insights will be available in a future update.</p>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const SettingsView = () => (
     <div className="flex-1 overflow-y-auto p-6 bg-[#0f172a] text-slate-200">
@@ -198,6 +201,30 @@ const App: React.FC = () => {
       </div>
     </div>
   );
+
+  const ActiveDocumentsModal = ({ documents, onClose }: { documents: DocumentItem[], onClose: () => void }) => {
+    const activeDocs = documents.filter(doc => doc.status === 'active');
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+          <div 
+              className="bg-[#1e293b] border border-slate-700 w-full max-w-2xl max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
+              onClick={e => e.stopPropagation()}
+          >
+              <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                  <h3 className="font-semibold text-lg text-slate-100">Active Documents ({activeDocs.length})</h3>
+                  <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"><X size={20} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 text-slate-300 space-y-2 custom-scrollbar">
+                {activeDocs.length > 0 ? (
+                  activeDocs.map(doc => <div key={doc.id} className="p-3 bg-slate-800/50 border border-slate-700/50 rounded-md text-sm">{doc.name}</div>)
+                ) : (
+                  <p>No active documents found.</p>
+                )}
+              </div>
+          </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#0f172a]">
@@ -236,6 +263,7 @@ const App: React.FC = () => {
       </main>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {showDocsModal && <ActiveDocumentsModal documents={documents} onClose={() => setShowDocsModal(false)} />}
     </div>
   );
 };
