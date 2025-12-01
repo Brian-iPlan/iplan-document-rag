@@ -57,8 +57,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const plainText = messages.map(msg => {
       const role = msg.role === 'user' ? 'User' : 'AI Assistant';
       const timestamp = msg.timestamp.toLocaleString();
-      // Basic strip of HTML for plain text export
-      const text = msg.text.replace(/<[^>]*>?/gm, '');
+      // Use a nullish coalescing operator to prevent errors on empty messages
+      const text = (msg.text || '').replace(/<[^>]*>?/gm, '');
       return `[${timestamp}] ${role}:\n${text}\n\n`;
     }).join('---\n');
 
