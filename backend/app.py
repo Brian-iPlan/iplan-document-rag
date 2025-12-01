@@ -8,6 +8,7 @@ from werkzeug.utils import secure_filename
 import google.generativeai as genai
 from dotenv import load_dotenv
 from markdown_it import MarkdownIt
+import datetime
 
 # --- Text Extraction Libraries ---
 import pypdf
@@ -37,29 +38,38 @@ documents_db = {}
 
 # --- HELPER FUNCTIONS ---
 
+def rehydrate_db_from_gemini():
+    """Connect to Gemini API on startup and rebuild the in-memory DB."""
+    print("--- Rehydrating database from Gemini File API ---")
+    try:
+        for file in genai.list_files():
+            # Attempt to parse clientId and name from the display_name
+            if '_' in file.display_name:
+                parts = file.display_name.split('_', 1)
+                client_id = parts[0]
+                original_name = parts[1]
+
+                # Use Gemini file's unique name as the primary key for our DB
+                doc_id = file.name 
+
+                doc_metadata = {
+                    "id": doc_id,
+                    "name": original_name,
+                    "clientId": client_id,
+                    "type": original_name.rsplit('.', 1)[1].lower() if '.' in original_name else 'other',
+                    "date": file.create_time.strftime('%b %d, %Y'),
+                    "status": 'active',
+                    "content": "Content is not stored in memory for rehydrated files.",
+                    "gemini_name": file.name
+                }
+                documents_db[doc_id] = doc_metadata
+        print(f"--- Found and loaded {len(documents_db)} existing documents. ---")
+    except Exception as e:
+        print(f"Could not rehydrate database from Gemini: {e}")
+
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def extract_text(filepath):
-    ext = filepath.rsplit('.', 1)[1].lower()
-    text = ""
-    try:
-        if ext == 'pdf':
-            with open(filepath, 'rb') as f:
-                reader = pypdf.PdfReader(f)
-                for page in reader.pages:
-                    text += page.extract_text() or ""
-        elif ext == 'docx':
-            doc = docx.Document(filepath)
-            for para in doc.paragraphs:
-                text += para.text + "\n"
-        elif ext in ['txt', 'md']:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                text = f.read()
-    except Exception as e:
-        print(f"Error extracting text from {filepath}: {e}")
-        return None
-    return text
 
 # --- API ENDPOINTS ---
 
@@ -69,46 +79,48 @@ def upload_document_handler():
         return jsonify({"error": "No file part"}), 400
     file = request.files['file']
     clientId = request.form.get('clientId')
-    newName = request.form.get('newName')
-    if not all([file, clientId, newName]) or not allowed_file(file.filename):
+    if not all([file, clientId]) or not allowed_file(file.filename):
         return jsonify({"error": "Invalid request"}), 400
 
-    filename = secure_filename(newName) # Use the new prefixed name
-    doc_id = str(uuid.uuid4())
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{doc_id}_{file.filename}") # Save with original name to avoid confusion
+    # Create a new unique name for the file to be displayed
+    newName = f"{clientId}_{file.filename}"
+
+    filename = secure_filename(file.filename) # Keep original for saving
+    doc_id = str(uuid.uuid4()) # Temp ID for saving
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{doc_id}_{filename}")
     file.save(filepath)
 
-    doc_metadata = {
-        "id": doc_id,
-        "name": filename, # Store the new name
-        "clientId": clientId,
-        "type": filename.rsplit('.', 1)[1].lower(),
-        "date": "Just now",
-        "status": 'indexing',
-        "content": "",
-        "gemini_name": None
-    }
-    documents_db[doc_id] = doc_metadata
-
-    text_content = extract_text(filepath)
-    documents_db[doc_id]['content'] = text_content
-
     try:
-        gemini_file = genai.upload_file(path=filepath, display_name=filename)
-        documents_db[doc_id]['gemini_name'] = gemini_file.name
-        documents_db[doc_id]['status'] = 'active'
+        print(f"Uploading {newName} to Gemini File API...")
+        gemini_file = genai.upload_file(path=filepath, display_name=newName)
+        
+        # Use the permanent Gemini ID as the key from now on
+        final_doc_id = gemini_file.name 
+
+        doc_metadata = {
+            "id": final_doc_id,
+            "name": file.filename, # Show original name in UI
+            "clientId": clientId,
+            "type": filename.rsplit('.', 1)[1].lower(),
+            "date": datetime.datetime.now().strftime('%b %d, %Y'),
+            "status": 'active',
+            "content": "", # We can extract preview text if needed
+            "gemini_name": gemini_file.name
+        }
+        documents_db[final_doc_id] = doc_metadata
+        print(f"Upload successful. Gemini Name: {gemini_file.name}")
+        return jsonify(doc_metadata), 201
+
     except Exception as e:
-        documents_db[doc_id]['status'] = 'error'
         print(f"Gemini API upload failed: {e}")
         return jsonify({"error": str(e)}), 500
-    
-    return jsonify(documents_db[doc_id]), 201
 
-@app.route('/documents/<doc_id>', methods=['DELETE'])
+@app.route('/documents/<path:doc_id>', methods=['DELETE'])
 def delete_document_handler(doc_id):
     doc = documents_db.pop(doc_id, None)
     if doc and doc.get('gemini_name'):
         try:
+            print(f"Deleting {doc['gemini_name']} from Gemini...")
             genai.delete_file(doc['gemini_name'])
         except Exception as e:
             print(f"Failed to delete file from Gemini: {e}")
@@ -118,12 +130,13 @@ def delete_document_handler(doc_id):
 def get_documents_list_handler():
     return jsonify(list(documents_db.values()))
 
-@app.route('/documents/<doc_id>', methods=['GET'])
+@app.route('/documents/<path:doc_id>', methods=['GET'])
 def get_document_content_handler(doc_id):
+    # This is for preview, so we need to fetch and extract text on demand
     doc = documents_db.get(doc_id)
     if not doc:
         return jsonify({"error": "Document not found"}), 404
-    return jsonify({"id": doc_id, "content": doc.get('content', "No content available.")})
+    return jsonify({"id": doc_id, "content": "Preview not available for reloaded documents."})
 
 @app.route('/chat', methods=['POST'])
 def chat_handler():
@@ -156,5 +169,12 @@ def chat_handler():
         print(f"Gemini chat error: {e}")
         return jsonify({"error": "Failed to get response from Gemini."}), 500
 
+# --- SERVER STARTUP ---
+if __name__ != '__main__':
+    # This block runs when gunicorn starts the server on Render
+    rehydrate_db_from_gemini()
+
 if __name__ == '__main__':
+    # This block runs when you start the server locally with `py app.py`
+    rehydrate_db_from_gemini()
     app.run(host='0.0.0.0', port=8000, debug=True)
