@@ -4,8 +4,8 @@ import ChatInterface from './components/ChatInterface';
 import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
-import { API_BASE_URL } from './config'; // Import the constant
-import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X, Users } from 'lucide-react';
+import { API_BASE_URL } from './config';
+import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X, Users, Info } from 'lucide-react';
 
 const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [showClientsModal, setShowClientsModal] = useState(false);
+  const [showCostModal, setShowCostModal] = useState(false);
 
   useEffect(() => {
     const fetchDocs = async () => {
@@ -174,8 +175,9 @@ const App: React.FC = () => {
             <p className="text-sm text-slate-400">Client IDs</p>
           </div>
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700">
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-2">
               <div className="p-3 bg-purple-500/20 rounded-lg text-purple-400"><Cpu size={24} /></div>
+              <button onClick={() => setShowCostModal(true)} className="text-xs font-medium text-blue-400 hover:underline">Cost Info</button>
             </div>
             <h3 className="text-3xl font-bold text-white mb-1">Gemini Pro</h3>
             <p className="text-sm text-slate-400">Active Model</p>
@@ -226,56 +228,37 @@ const App: React.FC = () => {
     </div>
   );
 
-  const ActiveDocumentsModal = ({ documents, onClose }: { documents: DocumentItem[], onClose: () => void }) => {
-    const activeDocs = documents.filter(doc => doc.status === 'active');
-    return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-          <div 
-              className="bg-[#1e293b] border border-slate-700 w-full max-w-2xl max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
-              onClick={e => e.stopPropagation()}
-          >
-              <div className="flex items-center justify-between p-4 border-b border-slate-800">
-                  <h3 className="font-semibold text-lg text-slate-100">Active Documents ({activeDocs.length})</h3>
-                  <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"><X size={20} /></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6 text-slate-300 space-y-2 custom-scrollbar">
-                {activeDocs.length > 0 ? (
-                  activeDocs.map(doc => <div key={doc.id} className="p-3 bg-slate-800/50 border border-slate-700/50 rounded-md text-sm">{doc.name}</div>)
-                ) : (
-                  <p>No active documents found.</p>
-                )}
-              </div>
-          </div>
-      </div>
-    );
-  };
+  const Modal = ({ title, children, onClose }: { title: string, children: React.ReactNode, onClose: () => void }) => (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <div 
+            className="bg-[#1e293b] border border-slate-700 w-full max-w-2xl max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
+            onClick={e => e.stopPropagation()}
+        >
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                <h3 className="font-semibold text-lg text-slate-100">{title}</h3>
+                <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 text-slate-300 space-y-2 custom-scrollbar">
+              {children}
+            </div>
+        </div>
+    </div>
+  );
 
   const ClientIDsModal = ({ documents, onClose, onSelect }: { documents: DocumentItem[], onClose: () => void, onSelect: (clientId: string) => void }) => {
     const uniqueClientIds = [...new Set(documents.map(doc => doc.clientId))].filter(Boolean);
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-          <div 
-              className="bg-[#1e293b] border border-slate-700 w-full max-w-md max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
-              onClick={e => e.stopPropagation()}
-          >
-              <div className="flex items-center justify-between p-4 border-b border-slate-800">
-                  <h3 className="font-semibold text-lg text-slate-100">Select a Client ID ({uniqueClientIds.length})</h3>
-                  <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"><X size={20} /></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6 text-slate-300 space-y-2 custom-scrollbar">
-                {uniqueClientIds.length > 0 ? (
-                  uniqueClientIds.map(id => 
-                    <button key={id} onClick={() => onSelect(id!)} className="w-full text-left p-3 bg-slate-800/50 border border-slate-700/50 rounded-md text-sm hover:bg-slate-700/50 transition-colors">{id}</button>
-                  )
-                ) : (
-                  <p>No Client IDs found. Upload a document to get started.</p>
-                )}
-              </div>
-          </div>
-      </div>
+      <Modal title={`Select a Client ID (${uniqueClientIds.length})`} onClose={onClose}>
+        {uniqueClientIds.length > 0 ? (
+          uniqueClientIds.map(id => 
+            <button key={id} onClick={() => onSelect(id!)} className="w-full text-left p-3 bg-slate-800/50 border border-slate-700/50 rounded-md text-sm hover:bg-slate-700/50 transition-colors">{id}</button>
+          )
+        ) : (
+          <p>No Client IDs found. Upload a document to get started.</p>
+        )}
+      </Modal>
     );
   };
-
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#0f172a]">
@@ -314,16 +297,23 @@ const App: React.FC = () => {
       </main>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      {showDocsModal && <ActiveDocumentsModal documents={documents} onClose={() => setShowDocsModal(false)} />}
-      {showClientsModal && 
-        <ClientIDsModal 
-          documents={documents} 
-          onClose={() => setShowClientsModal(false)} 
-          onSelect={(id) => {
-            setClientId(id);
-            setShowClientsModal(false);
-          }}
-        />}
+      {showDocsModal && <Modal title={`Active Documents (${documents.filter(d => d.status === 'active').length})`} onClose={() => setShowDocsModal(false)}>{documents.filter(d=>d.status === 'active').map(doc=><div key={doc.id} className="p-2 bg-slate-800 rounded-md">{doc.name}</div>)}</Modal>}
+      {showClientsModal && <ClientIDsModal documents={documents} onClose={() => setShowClientsModal(false)} onSelect={(id) => { setClientId(id); setShowClientsModal(false); }}/>}
+      {showCostModal && 
+        <Modal title="Cost & Service Information" onClose={() => setShowCostModal(false)}>
+          <div className="prose prose-invert max-w-none prose-sm">
+            <p>This application utilizes several services that may incur costs based on usage.</p>
+            <h4>Core Services:</h4>
+            <ul>
+              <li><strong>Google Gemini API:</strong> Used for all AI-powered chat and analysis. Costs are based on the amount of text sent and received (tokens) for each query.</li>
+              <li><strong>Vercel:</strong> Hosts the frontend user interface.</li>
+              <li><strong>Render:</strong> Hosts the backend server.</li>
+            </ul>
+            <p>This application is currently configured to use the free tiers of Vercel and Render. For detailed and up-to-date pricing for the AI model, please refer to the official Google Cloud pricing page.</p>
+            <a href="https://cloud.google.com/vertex-ai/generative-ai/pricing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">View Google AI Pricing</a>
+          </div>
+        </Modal>
+      }
     </div>
   );
 };
