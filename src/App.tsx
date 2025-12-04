@@ -53,9 +53,9 @@ const App: React.FC = () => {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        // No longer using optimistic update for upload, will rely on fetch
+        const newName = `${clientId}_${file.name}`;
         try {
-          await uploadDocument(file, clientId);
+          await uploadDocument(file, clientId, newName);
           setToast({ message: "Document uploaded successfully", type: 'success' });
           fetchDocuments(); // Fetch the ground truth
         } catch (error: any) {
