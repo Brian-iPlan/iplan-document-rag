@@ -16,5 +16,5 @@ COPY . .
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
 
-# Run app.py when the container launches
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
+# Run app.py with a longer timeout
+CMD ["gunicorn", "--workers", "1", "--timeout", "300", "--bind", "0.0.0.0:8000", "app:app"]

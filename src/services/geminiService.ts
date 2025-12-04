@@ -1,6 +1,5 @@
 import type { ChatMessage, DocumentItem } from "../types";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '../config';
 
 const mapStatus = (s: string) => (s === 'active' ? 'active' : s === 'indexing' ? 'indexing' : 'error');
 
@@ -36,13 +35,31 @@ export const deleteDocument = async (id: string): Promise<void> => {
   if (!response.ok) throw new Error('Deletion failed');
 };
 
-export const sendMessageToGemini = async (message: string, clientId: string, history: ChatMessage[]): Promise<string> => {
+export const sendMessageToGemini = async (
+  message: string, 
+  clientId: string, 
+  history: ChatMessage[],
+  onChunk: (chunk: string) => void
+): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, clientId, history: history.map(msg => ({ role: msg.role, content: msg.text })) }),
   });
-  if (!response.ok) throw new Error('Chat request failed');
-  const data = await response.json();
-  return data.response || "No response from server.";
+
+  if (!response.ok || !response.body) {
+    throw new Error('Chat request failed');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    const chunk = decoder.decode(value, { stream: true });
+    onChunk(chunk);
+  }
 };

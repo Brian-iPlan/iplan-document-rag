@@ -5,7 +5,7 @@ import uuid
 import redis
 import json
 import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import google.generativeai as genai
@@ -87,14 +87,8 @@ def upload_document_handler():
 @app.route('/documents/<path:doc_id>', methods=['DELETE'])
 def delete_document_handler(doc_id):
     try:
-        # Delete from Redis
         r.hdel("documents", doc_id)
-        print(f"Deleted {doc_id} from Redis.")
-
-        # Delete from Gemini
         genai.delete_file(doc_id)
-        print(f"Deleted {doc_id} from Gemini.")
-
         return jsonify({"message": "Document deleted"}), 200
     except Exception as e:
         print(f"Error during deletion: {e}")
@@ -133,12 +127,14 @@ def chat_handler():
         model_prompt = [user_message, *context_files]
 
         model = genai.GenerativeModel(model_name='models/gemini-pro-latest')
-        response = model.generate_content(model_prompt)
-        
-        md = MarkdownIt()
-        html_response = md.render(response.text)
-        
-        return jsonify({"response": html_response})
+        response = model.generate_content(model_prompt, stream=True)
+
+        def generate():
+            md = MarkdownIt()
+            for chunk in response:
+                yield md.render(chunk.text)
+
+        return Response(generate(), mimetype='text/html')
 
     except Exception as e:
         print(f"Chat handler error: {e}")

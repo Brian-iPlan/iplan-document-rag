@@ -12,7 +12,7 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [isInitialising, setIsInitialising] = useState(true); // New state for initial load
+  const [isInitialising, setIsInitialising] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
   const [clientId, setClientId] = useState('');
@@ -61,7 +61,7 @@ const App: React.FC = () => {
         try {
           await uploadDocument(file, clientId, newName);
           setToast({ message: "Document uploaded successfully", type: 'success' });
-          fetchDocuments(); // Fetch the ground truth
+          fetchDocuments();
         } catch (error: any) {
           console.error("Upload failed", error);
           setIsConnected(false);
@@ -86,12 +86,12 @@ const App: React.FC = () => {
     try {
         await deleteDocument(id);
         setToast({ message: "Document deleted successfully", type: 'success' });
-        fetchDocuments(); // Re-fetch documents to guarantee UI sync
+        fetchDocuments();
     } catch (error) {
         console.error("Delete failed", error);
         setIsConnected(false);
         setToast({ message: "Failed to delete document from server.", type: 'error' });
-        fetchDocuments(); // Even on failure, sync with the server state
+        fetchDocuments();
     }
   };
 
@@ -109,27 +109,32 @@ const App: React.FC = () => {
     
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
+    
+    const botMsgId = (Date.now() + 1).toString();
+    const botMsg: ChatMessage = {
+      id: botMsgId,
+      role: 'model',
+      text: '', // Start with empty text
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, botMsg]);
 
     try {
-      const responseText = await sendMessageToGemini(text, clientId, messages);
-      const botMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: responseText,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botMsg]);
+      await sendMessageToGemini(text, clientId, messages, (chunk) => {
+        setMessages(prev => prev.map(msg => 
+          msg.id === botMsgId 
+            ? { ...msg, text: msg.text + chunk }
+            : msg
+        ));
+      });
       setIsConnected(true);
     } catch (error: any) {
       setIsConnected(false);
-      const errorMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: `<b>Connection Error:</b> Could not reach the AI service. Please check the backend connection.`,
-        timestamp: new Date(),
-        isError: true
-      };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages(prev => prev.map(msg => 
+        msg.id === botMsgId 
+          ? { ...msg, text: `<b>Connection Error:</b> Could not reach the AI service.`, isError: true }
+          : msg
+      ));
     } finally {
       setIsLoading(false);
     }
