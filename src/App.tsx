@@ -26,21 +26,22 @@ const App: React.FC = () => {
   const [showCostExampleModal, setShowCostExampleModal] = useState(false);
   const [costExampleContent, setCostExampleContent] = useState('');
 
-  useEffect(() => {
-    const fetchDocs = async () => {
-      try {
-        const docs = await getDocuments();
-        setDocuments(docs);
-        setIsConnected(true);
-      } catch (err) {
-        console.error("Backend Connection Error:", err);
-        setIsConnected(false);
-      }
-    };
-    fetchDocs();
+  const fetchDocuments = useCallback(async () => {
+    try {
+      const docs = await getDocuments();
+      setDocuments(docs);
+      setIsConnected(true);
+    } catch (err) {
+      console.error("Backend Connection Error:", err);
+      setIsConnected(false);
+    }
   }, []);
 
-  const handleUpload = useCallback(() => {
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  const handleUpload = useCallback(async () => {
     if (!clientId) {
       setToast({ message: "Please enter a Client ID before uploading.", type: 'error' });
       return;
@@ -52,26 +53,12 @@ const App: React.FC = () => {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        const tempId = Date.now().toString();
-        const newName = `${clientId}_${file.name}`;
-        const optimisticDoc: DocumentItem = {
-          id: tempId,
-          name: newName,
-          clientId: clientId, 
-          type: (file.name.split('.').pop() as any) || 'other',
-          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          status: 'indexing'
-        };
-        
-        setDocuments(prev => [optimisticDoc, ...prev]);
-
+        // No longer using optimistic update for upload, will rely on fetch
         try {
-          const uploadedDoc = await uploadDocument(file, clientId, newName);
-          setDocuments(prev => prev.map(d => d.id === tempId ? uploadedDoc : d));
+          await uploadDocument(file, clientId);
           setToast({ message: "Document uploaded successfully", type: 'success' });
-          setIsConnected(true);
+          fetchDocuments(); // Fetch the ground truth
         } catch (error: any) {
-          setDocuments(prev => prev.map(d => d.id === tempId ? { ...d, status: 'error' } : d));
           console.error("Upload failed", error);
           setIsConnected(false);
           setToast({ message: "Upload failed. Is the backend running?", type: 'error' });
@@ -80,31 +67,27 @@ const App: React.FC = () => {
     };
     
     input.click();
-  }, [clientId]);
+  }, [clientId, fetchDocuments]);
 
   const handleDeleteDocument = async (id: string) => {
     const docToDelete = documents.find(d => d.id === id);
     if (!docToDelete) return;
 
-    // If doc failed to upload, it only exists in frontend state. Remove it locally.
     if (docToDelete.status === 'error') {
       setDocuments(prev => prev.filter(d => d.id !== id));
       setToast({ message: "Removed errored upload entry.", type: 'success' });
       return;
     }
-
-    // For active docs, perform backend deletion.
-    const prevDocs = documents;
-    setDocuments(prev => prev.filter(d => d.id !== id));
     
     try {
         await deleteDocument(id);
         setToast({ message: "Document deleted successfully", type: 'success' });
+        fetchDocuments(); // Re-fetch documents to guarantee UI sync
     } catch (error) {
-        setDocuments(prevDocs); // Revert on failure
         console.error("Delete failed", error);
         setIsConnected(false);
         setToast({ message: "Failed to delete document from server.", type: 'error' });
+        fetchDocuments(); // Even on failure, sync with the server state
     }
   };
 
