@@ -9,7 +9,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import google.generativeai as genai
-from dotenv import load_dotenv
 from markdown_it import MarkdownIt
 
 # --- Text Extraction Libraries ---
@@ -17,7 +16,6 @@ import pypdf
 import docx
 
 # --- CONFIGURATION ---
-load_dotenv() 
 
 # --- Gemini API Config ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -146,6 +144,6 @@ def chat_handler():
         print(f"Chat handler error: {e}")
         return jsonify({"error": "Failed to get response from Gemini."}), 500
 
-# Note: No rehydration needed as Redis is the source of truth.
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
