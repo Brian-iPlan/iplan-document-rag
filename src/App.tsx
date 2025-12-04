@@ -5,13 +5,14 @@ import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
 import { API_BASE_URL } from './config';
-import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X, Users, Info } from 'lucide-react';
+import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X, Users, Info, Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isInitialising, setIsInitialising] = useState(true); // New state for initial load
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
   const [clientId, setClientId] = useState('');
@@ -27,6 +28,7 @@ const App: React.FC = () => {
   const [costExampleContent, setCostExampleContent] = useState('');
 
   const fetchDocuments = useCallback(async () => {
+    setIsInitialising(true);
     try {
       const docs = await getDocuments();
       setDocuments(docs);
@@ -34,6 +36,8 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Backend Connection Error:", err);
       setIsConnected(false);
+    } finally {
+      setIsInitialising(false);
     }
   }, []);
 
@@ -157,6 +161,34 @@ const App: React.FC = () => {
       filter === 'processing' ? doc.status === 'indexing' : true;
     return matchesClient && matchesSearch && matchesFilter;
   });
+
+  const MainContent = () => {
+    if (isInitialising) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-4" />
+          <p className="text-lg">Waking up backend services...</p>
+          <p className="text-sm">This may take up to 30 seconds.</p>
+        </div>
+      )
+    }
+    switch(activeView) {
+      case 'documents':
+        return <ChatInterface 
+          messages={messages}
+          isLoading={isLoading}
+          onSendMessage={handleSendMessage}
+          onToggleSidebar={() => setIsSidebarOpen(true)}
+          onClearHistory={handleClearHistory}
+        />;
+      case 'dashboard':
+        return <DashboardView />;
+      case 'settings':
+        return <SettingsView />;
+      default:
+        return null;
+    }
+  }
 
   const DashboardView = () => {
     const activeDocs = documents.filter(d => d.status === 'active');
@@ -294,17 +326,7 @@ const App: React.FC = () => {
       </div>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden">
-        {activeView === 'documents' && (
-          <ChatInterface 
-            messages={messages}
-            isLoading={isLoading}
-            onSendMessage={handleSendMessage}
-            onToggleSidebar={() => setIsSidebarOpen(true)}
-            onClearHistory={handleClearHistory}
-          />
-        )}
-        {activeView === 'dashboard' && <DashboardView />}
-        {activeView === 'settings' && <SettingsView />}
+        <MainContent />
       </main>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
