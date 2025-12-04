@@ -83,17 +83,28 @@ const App: React.FC = () => {
   }, [clientId]);
 
   const handleDeleteDocument = async (id: string) => {
+    const docToDelete = documents.find(d => d.id === id);
+    if (!docToDelete) return;
+
+    // If doc failed to upload, it only exists in frontend state. Remove it locally.
+    if (docToDelete.status === 'error') {
+      setDocuments(prev => prev.filter(d => d.id !== id));
+      setToast({ message: "Removed errored upload entry.", type: 'success' });
+      return;
+    }
+
+    // For active docs, perform backend deletion.
     const prevDocs = documents;
     setDocuments(prev => prev.filter(d => d.id !== id));
     
     try {
         await deleteDocument(id);
-        setToast({ message: "Document deleted", type: 'success' });
+        setToast({ message: "Document deleted successfully", type: 'success' });
     } catch (error) {
-        setDocuments(prevDocs);
+        setDocuments(prevDocs); // Revert on failure
         console.error("Delete failed", error);
         setIsConnected(false);
-        setToast({ message: "Failed to delete document", type: 'error' });
+        setToast({ message: "Failed to delete document from server.", type: 'error' });
     }
   };
 
