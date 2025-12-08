@@ -5,7 +5,7 @@ import Toast from './components/Toast';
 import type { DocumentItem, ChatMessage, ViewMode } from './types';
 import { sendMessageToGemini, uploadDocument, getDocuments, deleteDocument } from './services/geminiService';
 import { API_BASE_URL } from './config';
-import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X, Users, Info, Loader2 } from 'lucide-react';
+import { BarChart3, Database, HardDrive, Cpu, Settings as SettingsIcon, AlertTriangle, X, Users, Info, Loader2, Search } from 'lucide-react';
 
 const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -61,7 +61,7 @@ const App: React.FC = () => {
         try {
           await uploadDocument(file, clientId, newName);
           setToast({ message: "Document uploaded successfully", type: 'success' });
-          fetchDocuments();
+          fetchDocuments(); // Fetch the ground truth
         } catch (error: any) {
           console.error("Upload failed", error);
           setIsConnected(false);
@@ -86,12 +86,12 @@ const App: React.FC = () => {
     try {
         await deleteDocument(id);
         setToast({ message: "Document deleted successfully", type: 'success' });
-        fetchDocuments();
+        fetchDocuments(); // Re-fetch documents to guarantee UI sync
     } catch (error) {
         console.error("Delete failed", error);
         setIsConnected(false);
         setToast({ message: "Failed to delete document from server.", type: 'error' });
-        fetchDocuments();
+        fetchDocuments(); // Even on failure, sync with the server state
     }
   };
 
@@ -293,6 +293,36 @@ const App: React.FC = () => {
     </div>
   );
 
+  const ActiveDocumentsModal = ({ documents, onClose }: { documents: DocumentItem[], onClose: () => void }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const activeDocs = documents.filter(doc => 
+      doc.status === 'active' && 
+      doc.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  
+    return (
+      <Modal title={`Active Documents (${activeDocs.length})`} onClose={onClose}>
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input 
+            type="text"
+            placeholder="Search active documents..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-[#0f172a] border border-slate-700 rounded-md pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+          />
+        </div>
+        <div className="space-y-2">
+          {activeDocs.length > 0 ? (
+            activeDocs.map(doc => <div key={doc.id} className="p-3 bg-slate-800/50 border border-slate-700/50 rounded-md text-sm">{doc.name}</div>)
+          ) : (
+            <p className="text-center text-slate-500 py-4">No active documents match your search.</p>
+          )}
+        </div>
+      </Modal>
+    );
+  };
+
   const ClientIDsModal = ({ documents, onClose, onSelect }: { documents: DocumentItem[], onClose: () => void, onSelect: (clientId: string) => void }) => {
     const uniqueClientIds = [...new Set(documents.map(doc => doc.clientId))].filter(Boolean);
     return (
@@ -335,7 +365,7 @@ const App: React.FC = () => {
       </main>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      {showDocsModal && <Modal title={`Active Documents (${documents.filter(d => d.status === 'active').length})`} onClose={() => setShowDocsModal(false)}>{documents.filter(d=>d.status === 'active').map(doc=><div key={doc.id} className="p-2 bg-slate-800 rounded-md">{doc.name}</div>)}</Modal>}
+      {showDocsModal && <ActiveDocumentsModal documents={documents} onClose={() => setShowDocsModal(false)} />}
       {showClientsModal && <ClientIDsModal documents={documents} onClose={() => setShowClientsModal(false)} onSelect={(id) => { setClientId(id); setShowClientsModal(false); }}/>}
       {showCostModal && 
         <Modal title="Cost & Service Information" onClose={() => setShowCostModal(false)}>
