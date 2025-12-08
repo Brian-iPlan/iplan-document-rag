@@ -266,6 +266,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     <p><strong>2. Regulatory Documents:</strong> For other regulatory documents use "Regs" as the Client ID.</p>
                     <p><strong>3. Querying:</strong> When querying a document please make your question as specific as possible to enable more precise answers.</p>
                     <p><strong>4. View Full Name:</strong> Click on a document in the sidebar to see its full name in the preview pane.</p>
+                    <p><strong>5. Search Uploaded Files:</strong> Click the View All link in the Active Documents card on the dashboard to open the uploaded documents search to check if it is available before uploading a new document</p>
                 </div>
             </div>
         </div>
