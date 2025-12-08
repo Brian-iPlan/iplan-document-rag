@@ -5,6 +5,7 @@ import uuid
 import redis
 import json
 import datetime
+import tempfile
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -17,11 +18,19 @@ import docx
 
 # --- CONFIGURATION ---
 
-# --- Gemini API Config ---
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found. Please set it in a .env file.")
-genai.configure(api_key=GEMINI_API_KEY)
+# --- Service Account Authentication ---
+# The JSON content is passed as a single-line environment variable.
+credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+if not credentials_json:
+    raise ValueError("GOOGLE_APPLICATION_CREDENTIALS_JSON not found. Please set it in the environment.")
+
+# Create a temporary file to hold the credentials
+with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
+    temp_f.write(credentials_json)
+    temp_f.flush()
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
+
+# Now, the library will automatically use the service account.
 
 # --- Redis Config ---
 REDIS_URL = os.getenv("REDIS_URL")
@@ -133,11 +142,10 @@ def chat_handler():
             try:
                 context_files.append(genai.get_file(name=doc_data['gemini_name']))
             except Exception as e:
-                # Log the specific error from the Gemini API
                 print(f"CRITICAL: Could not retrieve file {doc_data.get('name')} (ID: {doc_data.get('gemini_name')}). Error: {e}")
 
         if not context_files:
-            error_msg = f"Found {len(client_docs_data)} documents for this client, but could not access any of them on the AI service. Please check the API Key permissions in your Google Cloud account."
+            error_msg = f"Found {len(client_docs_data)} documents for this client, but could not access any of them on the AI service. Please check the API Key permissions or Service Account roles in your Google Cloud account."
             return stream_error_message(error_msg)
 
         model_prompt = [user_message, *context_files]
