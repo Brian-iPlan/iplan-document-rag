@@ -61,7 +61,7 @@ def upload_document_handler():
         print(f"Uploading {new_name} to Gemini...")
         gemini_file = genai.upload_file(path=filepath, display_name=new_name)
         
-        doc_id = gemini_file.name # Use the permanent Gemini ID
+        doc_id = gemini_file.name
         doc_data = {
             "id": doc_id,
             "name": new_name,
@@ -113,6 +113,11 @@ def chat_handler():
     user_message = data['message']
     client_id = data['clientId']
     
+    def stream_error_message(message):
+        def generate():
+            yield message
+        return Response(generate(), mimetype='text/html')
+
     try:
         all_docs_raw = r.hgetall("documents")
         client_docs_data = [
@@ -120,15 +125,20 @@ def chat_handler():
             if json.loads(doc_json).get('clientId') == client_id
         ]
 
+        if not client_docs_data:
+            return stream_error_message("No documents were found in the database for this client.")
+
         context_files = []
         for doc_data in client_docs_data:
             try:
                 context_files.append(genai.get_file(name=doc_data['gemini_name']))
             except Exception as e:
-                print(f"Warning: Could not retrieve file {doc_data.get('gemini_name')}. It may have been deleted. Skipping. Error: {e}")
+                # Log the specific error from the Gemini API
+                print(f"CRITICAL: Could not retrieve file {doc_data.get('name')} (ID: {doc_data.get('gemini_name')}). Error: {e}")
 
         if not context_files:
-            return jsonify({"response": "No valid documents found for this client to answer with."})
+            error_msg = f"Found {len(client_docs_data)} documents for this client, but could not access any of them on the AI service. Please check the API Key permissions in your Google Cloud account."
+            return stream_error_message(error_msg)
 
         model_prompt = [user_message, *context_files]
 
@@ -144,7 +154,8 @@ def chat_handler():
 
     except Exception as e:
         print(f"Chat handler error: {e}")
-        return jsonify({"error": "Failed to get response from Gemini."}), 500
+        return stream_error_message("An error occurred on the server while processing your request.")
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
