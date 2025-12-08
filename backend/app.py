@@ -115,15 +115,21 @@ def chat_handler():
     
     try:
         all_docs_raw = r.hgetall("documents")
-        client_docs = [
+        client_docs_data = [
             json.loads(doc_json) for doc_json in all_docs_raw.values() 
             if json.loads(doc_json).get('clientId') == client_id
         ]
 
-        if not client_docs:
-            return jsonify({"response": "No documents found for this client."})
+        context_files = []
+        for doc_data in client_docs_data:
+            try:
+                context_files.append(genai.get_file(name=doc_data['gemini_name']))
+            except Exception as e:
+                print(f"Warning: Could not retrieve file {doc_data.get('gemini_name')}. It may have been deleted. Skipping. Error: {e}")
 
-        context_files = [genai.get_file(name=doc['gemini_name']) for doc in client_docs]
+        if not context_files:
+            return jsonify({"response": "No valid documents found for this client to answer with."})
+
         model_prompt = [user_message, *context_files]
 
         model = genai.GenerativeModel(model_name='models/gemini-pro-latest')
@@ -139,7 +145,6 @@ def chat_handler():
     except Exception as e:
         print(f"Chat handler error: {e}")
         return jsonify({"error": "Failed to get response from Gemini."}), 500
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
