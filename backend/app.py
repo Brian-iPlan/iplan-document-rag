@@ -19,18 +19,14 @@ import docx
 # --- CONFIGURATION ---
 
 # --- Service Account Authentication ---
-# The JSON content is passed as a single-line environment variable.
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
 if not credentials_json:
     raise ValueError("GOOGLE_APPLICATION_CREDENTIALS_JSON not found. Please set it in the environment.")
 
-# Create a temporary file to hold the credentials
 with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
     temp_f.write(credentials_json)
     temp_f.flush()
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
-
-# Now, the library will automatically use the service account.
 
 # --- Redis Config ---
 REDIS_URL = os.getenv("REDIS_URL")
@@ -129,23 +125,26 @@ def chat_handler():
 
     try:
         all_docs_raw = r.hgetall("documents")
-        client_docs_data = [
-            json.loads(doc_json) for doc_json in all_docs_raw.values() 
-            if json.loads(doc_json).get('clientId') == client_id
+        all_docs = [json.loads(doc_json) for doc_json in all_docs_raw.values()]
+
+        # Filter for the specific client OR the global "Regs" client
+        relevant_docs_data = [
+            doc for doc in all_docs 
+            if doc.get('clientId') == client_id or doc.get('clientId') == "Regs"
         ]
 
-        if not client_docs_data:
-            return stream_error_message("No documents were found in the database for this client.")
+        if not relevant_docs_data:
+            return stream_error_message("No documents were found for this client or for the general regulations.")
 
         context_files = []
-        for doc_data in client_docs_data:
+        for doc_data in relevant_docs_data:
             try:
                 context_files.append(genai.get_file(name=doc_data['gemini_name']))
             except Exception as e:
                 print(f"CRITICAL: Could not retrieve file {doc_data.get('name')} (ID: {doc_data.get('gemini_name')}). Error: {e}")
 
         if not context_files:
-            error_msg = f"Found {len(client_docs_data)} documents for this client, but could not access any of them on the AI service. Please check the API Key permissions or Service Account roles in your Google Cloud account."
+            error_msg = f"Found {len(relevant_docs_data)} documents for this client, but could not access any of them on the AI service. Please check the API Key permissions or Service Account roles in your Google Cloud account."
             return stream_error_message(error_msg)
 
         model_prompt = [user_message, *context_files]
