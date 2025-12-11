@@ -34,7 +34,6 @@ PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 LOCATION = "us-central1"
 aiplatform.init(project=PROJECT_ID, location=LOCATION)
 
-
 # --- Redis Config ---
 REDIS_URL = os.getenv("REDIS_URL")
 if not REDIS_URL:
@@ -134,13 +133,26 @@ def chat_handler():
         all_docs_raw = r.hgetall("documents")
         all_docs = [json.loads(doc_json) for doc_json in all_docs_raw.values()]
 
-        relevant_docs_data = [
-            doc for doc in all_docs 
-            if doc.get('clientId') == client_id or doc.get('clientId') == "Regs"
-        ]
+        # Correctly and explicitly gather documents
+        client_docs = [doc for doc in all_docs if doc.get('clientId') == client_id]
+        regs_docs = []
+        if client_id != "Regs":
+            regs_docs = [doc for doc in all_docs if doc.get('clientId') == "Regs"]
+        
+        # Combine and ensure uniqueness
+        temp_combined = {doc['id']: doc for doc in client_docs + regs_docs}
+        relevant_docs_data = list(temp_combined.values())
 
         if not relevant_docs_data:
-            return stream_error_message("No documents were found in the database for this client.")
+            return stream_error_message("No documents were found for this client.")
+
+        relevant_docs_data.sort(key=lambda x: datetime.datetime.strptime(x['date'], '%b %d, %Y'), reverse=True)
+
+        DOCUMENT_LIMIT = 15 # Increased limit slightly as timeout is the main concern
+        warning_message = ""
+        if len(relevant_docs_data) > DOCUMENT_LIMIT:
+            warning_message = f"\n\n*(Note: Your query matched {len(relevant_docs_data)} documents. To ensure stability, only the {DOCUMENT_LIMIT} most recent were used.)*"
+            relevant_docs_data = relevant_docs_data[:DOCUMENT_LIMIT]
 
         context_files = []
         for doc_data in relevant_docs_data:
@@ -150,16 +162,18 @@ def chat_handler():
                 print(f"CRITICAL: Could not retrieve file {doc_data.get('name')} (ID: {doc_data.get('gemini_name')}). Error: {e}")
 
         if not context_files:
-            error_msg = f"Found {len(relevant_docs_data)} documents for this client, but could not access any of them on the AI service. Please check permissions in your Google Cloud account."
+            error_msg = f"Found {len(relevant_docs_data)} documents, but could not access them on the AI service. Please check permissions."
             return stream_error_message(error_msg)
 
-        model = genai.GenerativeModel(model_name='gemini-pro-latest') # Reverted to the stable model
+        model = genai.GenerativeModel(model_name='gemini-pro-latest')
         response = model.generate_content([user_message] + context_files, stream=True)
 
         def generate():
             md = MarkdownIt()
             for chunk in response:
                 yield md.render(chunk.text)
+            if warning_message:
+                yield md.render(warning_message)
 
         return Response(generate(), mimetype='text/html')
 

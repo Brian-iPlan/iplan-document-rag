@@ -159,7 +159,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>}
 
         <div className="p-6 pb-2 pt-2 md:pt-6">
-          <h1 className="text-xl font-bold text-white mb-1">iPlan Document RAG</h1>
+          <h1 className="text-xl font-bold text-white mb-1">iPlan Document Search</h1>
           <div className="mt-4">
             <label htmlFor="clientId" className="text-xs font-medium text-slate-400">Client ID</label>
             <input 
