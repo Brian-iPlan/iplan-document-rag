@@ -9,6 +9,8 @@ import tempfile
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+# Use the Vertex AI specific client
+from google.cloud import aiplatform
 import google.generativeai as genai
 from markdown_it import MarkdownIt
 
@@ -26,7 +28,14 @@ if not credentials_json:
 with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
     temp_f.write(credentials_json)
     temp_f.flush()
+    # The SDKs will automatically use this file
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
+
+# Explicitly initialize Vertex AI
+PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID") # You will need to add this to Render
+LOCATION = "us-central1" # Or your preferred location
+aiplatform.init(project=PROJECT_ID, location=LOCATION)
+
 
 # --- Redis Config ---
 REDIS_URL = os.getenv("REDIS_URL")
@@ -127,14 +136,13 @@ def chat_handler():
         all_docs_raw = r.hgetall("documents")
         all_docs = [json.loads(doc_json) for doc_json in all_docs_raw.values()]
 
-        # Filter for the specific client OR the global "Regs" client
         relevant_docs_data = [
             doc for doc in all_docs 
             if doc.get('clientId') == client_id or doc.get('clientId') == "Regs"
         ]
 
         if not relevant_docs_data:
-            return stream_error_message("No documents were found for this client or for the general regulations.")
+            return stream_error_message("No documents were found in the database for this client.")
 
         context_files = []
         for doc_data in relevant_docs_data:
@@ -144,13 +152,11 @@ def chat_handler():
                 print(f"CRITICAL: Could not retrieve file {doc_data.get('name')} (ID: {doc_data.get('gemini_name')}). Error: {e}")
 
         if not context_files:
-            error_msg = f"Found {len(relevant_docs_data)} documents for this client, but could not access any of them on the AI service. Please check the API Key permissions or Service Account roles in your Google Cloud account."
+            error_msg = f"Found {len(relevant_docs_data)} documents for this client, but could not access any of them on the AI service. Please check permissions in your Google Cloud account."
             return stream_error_message(error_msg)
 
-        model_prompt = [user_message, *context_files]
-
-        model = genai.GenerativeModel(model_name='models/gemini-pro-latest')
-        response = model.generate_content(model_prompt, stream=True)
+        model = genai.GenerativeModel(model_name='gemini-1.5-flash') # Using a model that supports Vertex AI
+        response = model.generate_content([user_message] + context_files, stream=True)
 
         def generate():
             md = MarkdownIt()
@@ -162,7 +168,6 @@ def chat_handler():
     except Exception as e:
         print(f"Chat handler error: {e}")
         return stream_error_message("An error occurred on the server while processing your request.")
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
