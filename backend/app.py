@@ -9,7 +9,6 @@ import tempfile
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-# Use the Vertex AI specific client
 from google.cloud import aiplatform
 import google.generativeai as genai
 from markdown_it import MarkdownIt
@@ -28,12 +27,11 @@ if not credentials_json:
 with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
     temp_f.write(credentials_json)
     temp_f.flush()
-    # The SDKs will automatically use this file
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
 
 # Explicitly initialize Vertex AI
-PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID") # You will need to add this to Render
-LOCATION = "us-central1" # Or your preferred location
+PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
+LOCATION = "us-central1"
 aiplatform.init(project=PROJECT_ID, location=LOCATION)
 
 
@@ -155,7 +153,7 @@ def chat_handler():
             error_msg = f"Found {len(relevant_docs_data)} documents for this client, but could not access any of them on the AI service. Please check permissions in your Google Cloud account."
             return stream_error_message(error_msg)
 
-        model = genai.GenerativeModel(model_name='gemini-1.5-flash') # Using a model that supports Vertex AI
+        model = genai.GenerativeModel(model_name='gemini-pro-latest') # Reverted to the stable model
         response = model.generate_content([user_message] + context_files, stream=True)
 
         def generate():
