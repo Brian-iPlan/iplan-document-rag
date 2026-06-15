@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 8080
 
 # Run app.py with a dynamic port matching Google Cloud Run's requirements
-CMD ["gunicorn", "--workers", "1", "--timeout", "300", "--bind", "0.0.0.0:8080", "app:app"]
+CMD ["sh", "-c", "gunicorn --workers 1 --timeout 300 --bind 0.0.0.0:$PORT app:app"]
