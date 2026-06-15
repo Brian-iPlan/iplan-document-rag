@@ -16,6 +16,5 @@ COPY . .
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
 
-# Run app.py with a dynamic port matching Google Cloud Run's requirements
-# Run app.py with a dynamic port matching Google Cloud Run's requirements
+# Run app.py with a layout optimized for Flask on Cloud Run
 CMD ["gunicorn", "--workers", "1", "--timeout", "300", "--bind", "0.0.0.0:8080", "app:app"]

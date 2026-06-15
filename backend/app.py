@@ -181,5 +181,9 @@ def chat_handler():
         print(f"Chat handler error: {e}")
         return stream_error_message("An error occurred on the server while processing your request.")
 
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy", "service": "iplan-document-rag-backend"}), 200
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
