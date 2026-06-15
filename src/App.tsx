@@ -375,9 +375,9 @@ const App: React.FC = () => {
             <ul>
               <li><strong>Google Gemini API:</strong> Used for all AI-powered chat and analysis. Costs are based on the amount of text sent and received (tokens) for each query.</li>
               <li><strong>Vercel:</strong> Hosts the frontend user interface.</li>
-              <li><strong>Render:</strong> Hosts the backend server.</li>
+              <li><strong>Google Cloud Run:</strong> Hosts the backend server.</li>
             </ul>
-            <p>This application is currently configured to use the free tiers of Vercel and Render. For detailed and up-to-date pricing for the AI model, please refer to the official Google Cloud pricing page.</p>
+            <p>This application is currently configured to use the free tier of Vercel and Google Cloud Run. For detailed and up-to-date pricing for the AI model, please refer to the official Google Cloud pricing page.</p>
             <a href="https://cloud.google.com/vertex-ai/generative-ai/pricing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">View Google AI Pricing</a>
           </div>
         </Modal>
