@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the content of the local src directory to the working directory
 COPY . .
 
-# Make port 8000 available to the world outside this container
-EXPOSE 8000
+# Make port 8080 available to the world outside this container
+EXPOSE 8080
 
-# Run app.py with a longer timeout
-CMD ["gunicorn", "--workers", "1", "--timeout", "300", "--bind", "0.0.0.0:8000", "app:app"]
+# Run app.py with a dynamic port matching Google Cloud Run's requirements
+CMD ["gunicorn", "--workers", "1", "--timeout", "300", "--bind", "0.0.0.0:8080", "app:app"]
