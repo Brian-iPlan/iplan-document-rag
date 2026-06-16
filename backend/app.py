@@ -50,7 +50,17 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'md'}
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-CORS(app)
+
+# Configure CORS explicitly to trust your frontend origins
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://iplan-document-rag.vercel.app",
+            "http://localhost:3000",
+            "http://localhost:5173"
+        ]
+    }
+})
 
 # --- HELPER FUNCTIONS ---
 def allowed_file(filename):
