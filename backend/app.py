@@ -21,13 +21,17 @@ import docx
 
 # --- Service Account Authentication ---
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
-if not credentials_json:
-    raise ValueError("GOOGLE_APPLICATION_CREDENTIALS_JSON not found. Please set it in the environment.")
 
-with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
-    temp_f.write(credentials_json)
-    temp_f.flush()
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
+if credentials_json:
+    # If provided (e.g., in local development), write to a temp file
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
+        temp_f.write(credentials_json)
+        temp_f.flush()
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
+else:
+    # If running on Cloud Run, it will natively use the attached Service Account.
+    # No manual file injection required.
+    print("GOOGLE_APPLICATION_CREDENTIALS_JSON not found. Falling back to Application Default Credentials.")
 
 # Explicitly initialize Vertex AI
 PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
