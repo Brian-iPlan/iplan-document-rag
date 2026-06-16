@@ -62,6 +62,15 @@ CORS(app, resources={
     }
 })
 
+# Hard intercept to guarantee headers are appended to all response streams
+@app.after_request
+def add_cors_headers(response):
+    response.headers.add("Access-Control-Allow-Origin", "https://iplan-document-rag.vercel.app")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS")
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    return response
+
 # --- HELPER FUNCTIONS ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
