@@ -21,13 +21,15 @@ import docx
 # --- Service Account Authentication ---
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
 
-if credentials_json:
+if credentials_json and credentials_json.strip():
+    # If provided (e.g., in local development), write to a temp file
     with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
         temp_f.write(credentials_json)
         temp_f.flush()
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
 else:
-    print("GOOGLE_APPLICATION_CREDENTIALS_JSON not found. Falling back to Application Default Credentials.")
+    # Safe fallback: Cloud Run natively uses its attached runtime service account.
+    print("GOOGLE_APPLICATION_CREDENTIALS_JSON not found or blank. Using Application Default Credentials.")
 
 # Explicitly initialize Vertex AI
 PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
@@ -55,7 +57,6 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 def add_cors_headers(response):
     origin = request.headers.get('Origin')
     if origin:
-        # Check if the domain is your local development or any of your Vercel deployments
         if "localhost" in origin or "127.0.0.1" in origin or "iplan-document-rag" in origin:
             response.headers["Access-Control-Allow-Origin"] = origin
             
