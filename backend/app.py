@@ -76,7 +76,9 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # --- API ENDPOINTS ---
+# Accept both /documents and /documents/ for uploads
 @app.route('/documents', methods=['POST'])
+@app.route('/documents/', methods=['POST'])
 def upload_document_handler():
     if 'file' not in request.files or 'clientId' not in request.form:
         return jsonify({"error": "Invalid request"}), 400
@@ -128,7 +130,9 @@ def delete_document_handler(doc_id):
         print(f"Error during deletion: {e}")
         return jsonify({"error": str(e)}), 500
 
+# Accept both /documents and /documents/ for list fetching
 @app.route('/documents', methods=['GET'])
+@app.route('/documents/', methods=['GET'])
 def get_documents_list_handler():
     try:
         all_docs_raw = r.hgetall("documents")
