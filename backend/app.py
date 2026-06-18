@@ -76,12 +76,15 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # --- API ENDPOINTS ---
-# Accept both /documents and /documents/ for uploads
+
+# 1. Update the Upload Route
 @app.route('/documents', methods=['POST'])
 @app.route('/documents/', methods=['POST'])
-def upload_document_handler():
+@app.route('/documents<path:path>', methods=['POST']) # Wildcard catch-all
+def upload_document_handler(path=None): # Add path=None here
     if 'file' not in request.files or 'clientId' not in request.form:
         return jsonify({"error": "Invalid request"}), 400
+
     
     file = request.files['file']
     client_id = request.form.get('clientId')
@@ -133,7 +136,8 @@ def delete_document_handler(doc_id):
 # Accept both /documents and /documents/ for list fetching
 @app.route('/documents', methods=['GET'])
 @app.route('/documents/', methods=['GET'])
-def get_documents_list_handler():
+@app.route('/documents<path:path>', methods=['GET']) # Wildcard catch-all
+def get_documents_list_handler(path=None):
     try:
         all_docs_raw = r.hgetall("documents")
         all_docs = [json.loads(doc_json) for doc_json in all_docs_raw.values()]
