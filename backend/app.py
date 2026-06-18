@@ -42,7 +42,7 @@ aiplatform.init(project=PROJECT_ID, location=LOCATION)
 REDIS_URL = os.getenv("REDIS_URL")
 if not REDIS_URL:
     raise ValueError("REDIS_URL not found. Please set it in an environment variable.")
-r = redis.from_url(REDIS_URL, decode_responses=True)
+r = redis.from_url(REDIS_URL, delete_responses=True)
 
 # --- Flask App Config ---
 UPLOAD_FOLDER = 'uploads'
@@ -77,14 +77,13 @@ def allowed_file(filename):
 
 # --- API ENDPOINTS ---
 
-# 1. Update the Upload Route
+# 1. Document Upload Route
 @app.route('/documents', methods=['POST'])
 @app.route('/documents/', methods=['POST'])
-@app.route('/documents<path:path>', methods=['POST']) # Wildcard catch-all
-def upload_document_handler(path=None): # Add path=None here
+@app.route('/documents/<path:path>', methods=['POST']) # Fixed explicit slash variable match
+def upload_document_handler(path=None):
     if 'file' not in request.files or 'clientId' not in request.form:
         return jsonify({"error": "Invalid request"}), 400
-
     
     file = request.files['file']
     client_id = request.form.get('clientId')
@@ -133,10 +132,10 @@ def delete_document_handler(doc_id):
         print(f"Error during deletion: {e}")
         return jsonify({"error": str(e)}), 500
 
-# Accept both /documents and /documents/ for list fetching
+# 2. Document List Retrieval Route
 @app.route('/documents', methods=['GET'])
 @app.route('/documents/', methods=['GET'])
-@app.route('/documents<path:path>', methods=['GET']) # Wildcard catch-all
+@app.route('/documents/<path:path>', methods=['GET']) # Fixed explicit slash variable match
 def get_documents_list_handler(path=None):
     try:
         all_docs_raw = r.hgetall("documents")
@@ -146,6 +145,7 @@ def get_documents_list_handler(path=None):
         print(f"Error fetching documents: {e}")
         return jsonify([]), 500
 
+# 3. AI Document Streaming Chat Route
 @app.route('/chat', methods=['POST'])
 def chat_handler():
     data = request.get_json()
@@ -179,7 +179,7 @@ def chat_handler():
 
         relevant_docs_data.sort(key=lambda x: datetime.datetime.strptime(x['date'], '%b %d, %Y'), reverse=True)
 
-        DOCUMENT_LIMIT = 15 # Increased limit slightly as timeout is the main concern
+        DOCUMENT_LIMIT = 15 
         warning_message = ""
         if len(relevant_docs_data) > DOCUMENT_LIMIT:
             warning_message = f"\n\n*(Note: Your query matched {len(relevant_docs_data)} documents. To ensure stability, only the {DOCUMENT_LIMIT} most recent were used.)*"
@@ -200,8 +200,10 @@ def chat_handler():
         response = model.generate_content([user_message] + context_files, stream=True)
 
         def generate():
+            # Streams pure, raw Markdown chunks directly to the Vercel engine
             for chunk in response:
-                yield chunk.text
+                if chunk.text:
+                    yield chunk.text
             if warning_message:
                 yield warning_message
 
