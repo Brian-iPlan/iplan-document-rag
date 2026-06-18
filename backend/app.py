@@ -200,11 +200,10 @@ def chat_handler():
         response = model.generate_content([user_message] + context_files, stream=True)
 
         def generate():
-            md = MarkdownIt()
             for chunk in response:
-                yield md.render(chunk.text)
+                yield chunk.text
             if warning_message:
-                yield md.render(warning_message)
+                yield warning_message
 
         return Response(generate(), mimetype='text/html')
 
