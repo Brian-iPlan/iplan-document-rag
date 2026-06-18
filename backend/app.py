@@ -11,7 +11,6 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from google.cloud import aiplatform
 import google.generativeai as genai
-from markdown_it import MarkdownIt
 
 # --- Text Extraction Libraries ---
 import pypdf
@@ -23,14 +22,11 @@ import docx
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
 
 if credentials_json:
-    # If provided (e.g., in local development), write to a temp file
     with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
         temp_f.write(credentials_json)
         temp_f.flush()
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
 else:
-    # If running on Cloud Run, it will natively use the attached Service Account.
-    # No manual file injection required.
     print("GOOGLE_APPLICATION_CREDENTIALS_JSON not found. Falling back to Application Default Credentials.")
 
 # Explicitly initialize Vertex AI
@@ -42,7 +38,7 @@ aiplatform.init(project=PROJECT_ID, location=LOCATION)
 REDIS_URL = os.getenv("REDIS_URL")
 if not REDIS_URL:
     raise ValueError("REDIS_URL not found. Please set it in an environment variable.")
-r = redis.from_url(REDIS_URL, delete_responses=True)
+r = redis.from_url(REDIS_URL, decode_responses=True)
 
 # --- Flask App Config ---
 UPLOAD_FOLDER = 'uploads'
@@ -51,24 +47,21 @@ ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'md'}
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Configure CORS explicitly to trust your frontend origins
-CORS(app, resources={
-    r"/*": {
-        "origins": [
-            "https://iplan-document-rag.vercel.app",
-            "http://localhost:3000",
-            "http://localhost:5173"
-        ]
-    }
-})
+# Allow dynamic CORS handling across localhost and any Vercel domain branches
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-# Hard intercept to guarantee headers are appended to all response streams
+# Hard intercept to dynamically trust whichever active Vercel domain or local engine calls it
 @app.after_request
 def add_cors_headers(response):
-    response.headers.add("Access-Control-Allow-Origin", "https://iplan-document-rag.vercel.app")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-    response.headers.add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS")
-    response.headers.add("Access-Control-Allow-Credentials", "true")
+    origin = request.headers.get('Origin')
+    if origin:
+        # Check if the domain is your local development or any of your Vercel deployments
+        if "localhost" in origin or "127.0.0.1" in origin or "iplan-document-rag" in origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET,PUT,POST,DELETE,OPTIONS"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
 # --- HELPER FUNCTIONS ---
@@ -78,10 +71,13 @@ def allowed_file(filename):
 # --- API ENDPOINTS ---
 
 # 1. Document Upload Route
-@app.route('/documents', methods=['POST'])
-@app.route('/documents/', methods=['POST'])
-@app.route('/documents/<path:path>', methods=['POST']) # Fixed explicit slash variable match
+@app.route('/documents', methods=['POST', 'OPTIONS'])
+@app.route('/documents/', methods=['POST', 'OPTIONS'])
+@app.route('/documents/<path:path>', methods=['POST', 'OPTIONS'])
 def upload_document_handler(path=None):
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+
     if 'file' not in request.files or 'clientId' not in request.form:
         return jsonify({"error": "Invalid request"}), 400
     
@@ -122,8 +118,10 @@ def upload_document_handler(path=None):
         if os.path.exists(filepath):
             os.remove(filepath)
 
-@app.route('/documents/<path:doc_id>', methods=['DELETE'])
+@app.route('/documents/<path:doc_id>', methods=['DELETE', 'OPTIONS'])
 def delete_document_handler(doc_id):
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
     try:
         r.hdel("documents", doc_id)
         genai.delete_file(doc_id)
@@ -133,10 +131,12 @@ def delete_document_handler(doc_id):
         return jsonify({"error": str(e)}), 500
 
 # 2. Document List Retrieval Route
-@app.route('/documents', methods=['GET'])
-@app.route('/documents/', methods=['GET'])
-@app.route('/documents/<path:path>', methods=['GET']) # Fixed explicit slash variable match
+@app.route('/documents', methods=['GET', 'OPTIONS'])
+@app.route('/documents/', methods=['GET', 'OPTIONS'])
+@app.route('/documents/<path:path>', methods=['GET', 'OPTIONS'])
 def get_documents_list_handler(path=None):
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
     try:
         all_docs_raw = r.hgetall("documents")
         all_docs = [json.loads(doc_json) for doc_json in all_docs_raw.values()]
@@ -146,8 +146,11 @@ def get_documents_list_handler(path=None):
         return jsonify([]), 500
 
 # 3. AI Document Streaming Chat Route
-@app.route('/chat', methods=['POST'])
+@app.route('/chat', methods=['POST', 'OPTIONS'])
 def chat_handler():
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+
     data = request.get_json()
     if not data or 'message' not in data or 'clientId' not in data:
         return jsonify({"error": "Invalid request"}), 400
@@ -164,13 +167,11 @@ def chat_handler():
         all_docs_raw = r.hgetall("documents")
         all_docs = [json.loads(doc_json) for doc_json in all_docs_raw.values()]
 
-        # Correctly and explicitly gather documents
         client_docs = [doc for doc in all_docs if doc.get('clientId') == client_id]
         regs_docs = []
         if client_id != "Regs":
             regs_docs = [doc for doc in all_docs if doc.get('clientId') == "Regs"]
         
-        # Combine and ensure uniqueness
         temp_combined = {doc['id']: doc for doc in client_docs + regs_docs}
         relevant_docs_data = list(temp_combined.values())
 
@@ -200,7 +201,6 @@ def chat_handler():
         response = model.generate_content([user_message] + context_files, stream=True)
 
         def generate():
-            # Streams pure, raw Markdown chunks directly to the Vercel engine
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
