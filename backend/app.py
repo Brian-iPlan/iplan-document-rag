@@ -12,6 +12,25 @@ from werkzeug.utils import secure_filename
 from google.cloud import aiplatform
 import google.generativeai as genai
 
+# --- Diagnostics: Print GOOGLE Environment Variables ---
+print("=== START DIAGNOSTIC: GOOGLE ENVIRONMENT VARIABLES ===")
+for key, value in os.environ.items():
+    if "GOOGLE" in key.upper():
+        if "JSON" in key.upper() or "CREDENTIALS" in key.upper():
+            print(f"{key}: [SET, length={len(value)}]" if value else f"{key}: [NOT SET]")
+        else:
+            print(f"{key}: {value}")
+print("=== END DIAGNOSTIC ===")
+
+# --- Gemini API Configuration ---
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
+    print("Gemini API configured successfully with GEMINI_API_KEY.")
+else:
+    print("WARNING: GEMINI_API_KEY is not set in the environment.")
+
+
 # --- Text Extraction Libraries ---
 import pypdf
 import docx
