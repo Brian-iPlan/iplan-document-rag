@@ -10,7 +10,8 @@ from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from google.cloud import aiplatform
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # --- Diagnostics: Print GOOGLE Environment Variables ---
 print("=== START DIAGNOSTIC: GOOGLE ENVIRONMENT VARIABLES ===")
@@ -25,10 +26,12 @@ print("=== END DIAGNOSTIC ===")
 # --- Gemini API Configuration ---
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 if gemini_api_key:
-    genai.configure(api_key=gemini_api_key)
-    print("Gemini API configured successfully with GEMINI_API_KEY.")
+    client = genai.Client(api_key=gemini_api_key)
+    print("Gemini API client initialized successfully with GEMINI_API_KEY.")
 else:
-    print("WARNING: GEMINI_API_KEY is not set in the environment.")
+    client = genai.Client()
+    print("WARNING: GEMINI_API_KEY is not set in the environment. Initialized client with default credentials.")
+
 
 
 # --- Text Extraction Libraries ---
@@ -113,7 +116,10 @@ def upload_document_handler(path=None):
 
     try:
         print(f"Uploading {new_name} to Gemini...")
-        gemini_file = genai.upload_file(path=filepath, display_name=new_name)
+        gemini_file = client.files.upload(
+            file=filepath,
+            config=types.UploadFileConfig(display_name=new_name)
+        )
         
         doc_id = gemini_file.name
         doc_data = {
@@ -144,7 +150,7 @@ def delete_document_handler(doc_id):
         return jsonify({"status": "ok"}), 200
     try:
         r.hdel("documents", doc_id)
-        genai.delete_file(doc_id)
+        client.files.delete(name=doc_id)
         return jsonify({"message": "Document deleted"}), 200
     except Exception as e:
         print(f"Error during deletion: {e}")
@@ -209,7 +215,7 @@ def chat_handler():
         context_files = []
         for doc_data in relevant_docs_data:
             try:
-                context_files.append(genai.get_file(name=doc_data['gemini_name']))
+                context_files.append(client.files.get(name=doc_data['gemini_name']))
             except Exception as e:
                 print(f"CRITICAL: Could not retrieve file {doc_data.get('name')} (ID: {doc_data.get('gemini_name')}). Error: {e}")
 
@@ -217,8 +223,10 @@ def chat_handler():
             error_msg = f"Found {len(relevant_docs_data)} documents, but could not access them on the AI service. Please check permissions."
             return stream_error_message(error_msg)
 
-        model = genai.GenerativeModel(model_name='gemini-pro-latest')
-        response = model.generate_content([user_message] + context_files, stream=True)
+        response = client.models.generate_content_stream(
+            model='gemini-2.5-flash',
+            contents=[user_message] + context_files
+        )
 
         def generate():
             for chunk in response:
@@ -232,6 +240,10 @@ def chat_handler():
     except Exception as e:
         print(f"Chat handler error: {e}")
         return stream_error_message("An error occurred on the server while processing your request.")
+
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
 
 @app.route('/', methods=['GET'])
 def health_check():

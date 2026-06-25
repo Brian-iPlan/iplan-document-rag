@@ -227,7 +227,7 @@ const App: React.FC = () => {
                 <button onClick={handleShowCostExample} className="text-xs font-medium text-blue-400 hover:underline">Example</button>
               </div>
             </div>
-            <h3 className="text-3xl font-bold text-white mb-1">Gemini Pro</h3>
+            <h3 className="text-3xl font-bold text-white mb-1">Gemini 2.5 Flash</h3>
             <p className="text-sm text-slate-400">Active Model</p>
           </div>
         </div>
@@ -260,7 +260,7 @@ const App: React.FC = () => {
               <label className="block text-sm font-medium text-slate-400 mb-2">Active AI Model</label>
               <input 
                 type="text" 
-                value="models/gemini-pro-latest"
+                value="models/gemini-2.5-flash"
                 readOnly
                 className="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none"
               />
