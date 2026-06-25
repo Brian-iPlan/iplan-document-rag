@@ -101,48 +101,108 @@ def upload_document_handler(path=None):
     if request.method == 'OPTIONS':
         return jsonify({"status": "ok"}), 200
 
-    if 'file' not in request.files or 'clientId' not in request.form:
-        return jsonify({"error": "Invalid request"}), 400
-    
-    file = request.files['file']
-    client_id = request.form.get('clientId')
-    new_name = f"{client_id}_{file.filename}"
-
-    if file.filename == '' or not allowed_file(file.filename):
-        return jsonify({"error": "Invalid file type"}), 400
-
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
-    file.save(filepath)
-
     try:
-        print(f"Uploading {new_name} to Gemini...")
-        gemini_file = client.files.upload(
-            file=filepath,
-            config=types.UploadFileConfig(display_name=new_name)
-        )
-        
-        doc_id = gemini_file.name
-        doc_data = {
-            "id": doc_id,
-            "name": new_name,
-            "clientId": client_id,
-            "type": file.filename.rsplit('.', 1)[1].lower(),
-            "date": datetime.datetime.now().strftime('%b %d, %Y'),
-            "status": 'active',
-            "gemini_name": gemini_file.name
-        }
-        
-        r.hset("documents", doc_id, json.dumps(doc_data))
-        print(f"Successfully saved {doc_id} to Redis.")
-        
-        return jsonify(doc_data), 201
+        client_id = None
+        file_name = None
+        file_bytes = None
+        request_size = None
 
-    except Exception as e:
-        print(f"Upload failed: {e}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if os.path.exists(filepath):
-            os.remove(filepath)
+        if request.is_json:
+            req_data = request.get_json() or {}
+            client_id = req_data.get('clientId')
+            file_name = req_data.get('fileName') or req_data.get('filename') or 'document.txt'
+            raw_data = req_data.get('data')
+            request_size = req_data.get('requestSize')
+            
+            if raw_data:
+                import base64
+                if isinstance(raw_data, str):
+                    try:
+                        if ',' in raw_data:
+                            raw_data = raw_data.split(',', 1)[1]
+                        file_bytes = base64.b64decode(raw_data)
+                    except Exception:
+                        file_bytes = raw_data.encode('utf-8')
+                else:
+                    file_bytes = raw_data
+        else:
+            # 1. Standard file upload
+            if 'file' in request.files:
+                file = request.files['file']
+                client_id = request.form.get('clientId')
+                file_name = file.filename
+                file_bytes = file.read()
+                request_size = request.form.get('requestSize')
+            # 2. Form field data upload
+            elif 'data' in request.form:
+                client_id = request.form.get('clientId')
+                file_name = request.form.get('fileName') or request.form.get('filename') or 'document.txt'
+                raw_data = request.form.get('data')
+                request_size = request.form.get('requestSize')
+                
+                import base64
+                if isinstance(raw_data, str):
+                    try:
+                        if ',' in raw_data:
+                            raw_data = raw_data.split(',', 1)[1]
+                        file_bytes = base64.b64decode(raw_data)
+                    except Exception:
+                        file_bytes = raw_data.encode('utf-8')
+                else:
+                    file_bytes = raw_data
+
+        if not client_id or not file_name or file_bytes is None:
+            return jsonify({"error": "Invalid request: missing clientId, file/data, or fileName"}), 400
+
+        if file_name == '' or not allowed_file(file_name):
+            return jsonify({"error": "Invalid file type"}), 400
+
+        # Log details about the upload size
+        file_size = len(file_bytes)
+        print(f"Processing upload: client={client_id}, file={file_name}, size={file_size} bytes, requestSize={request_size}")
+
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file_name))
+        with open(filepath, 'wb') as f:
+            f.write(file_bytes)
+
+        try:
+            new_name = f"{client_id}_{file_name}"
+            print(f"Uploading {new_name} to Gemini...")
+            gemini_file = client.files.upload(
+                file=filepath,
+                config=types.UploadFileConfig(display_name=new_name)
+            )
+            
+            doc_id = gemini_file.name
+            doc_data = {
+                "id": doc_id,
+                "name": new_name,
+                "clientId": client_id,
+                "type": file_name.rsplit('.', 1)[1].lower() if '.' in file_name else 'txt',
+                "date": datetime.datetime.now().strftime('%b %d, %Y'),
+                "status": 'active',
+                "gemini_name": gemini_file.name
+            }
+            
+            r.hset("documents", doc_id, json.dumps(doc_data))
+            print(f"Successfully saved {doc_id} to Redis.")
+            
+            return jsonify(doc_data), 201
+
+        except Exception as api_err:
+            import traceback
+            traceback.print_exc()
+            print(f"Gemini API upload or Redis save failed: {api_err}")
+            return jsonify({"error": str(api_err), "traceback": traceback.format_exc()}), 500
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    except Exception as route_err:
+        import traceback
+        traceback.print_exc()
+        print(f"Route handler failed: {route_err}")
+        return jsonify({"error": str(route_err), "traceback": traceback.format_exc()}), 500
+
 
 @app.route('/documents/<path:doc_id>', methods=['DELETE', 'OPTIONS'])
 def delete_document_handler(doc_id):
