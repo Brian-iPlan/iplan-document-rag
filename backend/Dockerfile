@@ -1,43 +1,42 @@
-# Use a slim, official Python image for the builder stage
+# 1. Builder Stage
 FROM python:3.11-slim AS builder
 
-# Set working directory and environment for faster, deterministic builds
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+  PYTHONUNBUFFERED=1 \
+  PIP_NO_CACHE_DIR=1
 
-# Install runtime dependencies first (leverages Docker layer cache)
+# Install dependencies into a specific local directory
+RUN pip install --upgrade pip
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --user -r requirements.txt
 
-# Copy the application source code
+# 2. Runtime Stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install curl for healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+  rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
+# Copy your application code
 COPY . .
 
-# -------------------------------------------------
-# Runtime image (smaller, production‑ready)
-# -------------------------------------------------
-FROM python:3.11-slim
-WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# Ensure the local bin is in PATH so Gunicorn can be found
+ENV PATH=/root/.local/bin:$PATH
 
-# Set default port (Cloud Run provides $PORT at runtime)
-
-
-# Copy only the built artifacts (installed packages and app code) from the builder stage
-COPY --from=builder /app /app
-
-# Create a non‑root user for security
+# Create a non-root user
 RUN addgroup --system app && adduser --system --group app
+RUN chown -R app:app /app
 USER app
 
-# Expose the port Cloud Run expects (optional, but good practice)
 EXPOSE 8080
 
-# Add a simple healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
-  CMD curl -f http://localhost:${PORT}/health || exit 1
+  CMD curl -f http://localhost:8080/health || exit 1
 
-# Start the app with Gunicorn, binding to the $PORT provided by Cloud Run
-CMD exec gunicorn --bind :$PORT --workers 1 --timeout 300 app:app
+# Start the app
+CMD exec gunicorn --bind :$PORT --workers 1 --timeout 30 --chdir /app app:app
