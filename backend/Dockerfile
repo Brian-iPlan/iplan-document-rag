@@ -24,9 +24,11 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Create non-root user WITH a home directory so gunicorn's control socket
-# doesn't hit 'Permission denied: /nonexistent'
-RUN addgroup --system app && adduser --system --group --home /home/app --create-home app
+# Create non-root user WITH a real home dir so gunicorn's control socket
+# doesn't hit 'Permission denied: /nonexistent'.
+# NOTE: Debian's adduser --system does not support --create-home;
+# useradd/groupadd are standard and work correctly here.
+RUN groupadd --system app && useradd --system --gid app --home-dir /home/app --create-home app
 
 WORKDIR /app
 
