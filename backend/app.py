@@ -62,6 +62,12 @@ aiplatform.init(project=PROJECT_ID, location=LOCATION)
 REDIS_URL = os.getenv("REDIS_URL")
 if not REDIS_URL:
     raise ValueError("REDIS_URL not found. Please set it in an environment variable.")
+
+# Upstash Redis requires SSL/TLS (rediss://). If it's an upstash.io URL using redis://, auto-upgrade it.
+if "upstash.io" in REDIS_URL and REDIS_URL.startswith("redis://"):
+    print("Auto-upgrading Redis URL to secure rediss:// protocol for Upstash compatibility.")
+    REDIS_URL = REDIS_URL.replace("redis://", "rediss://", 1)
+
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
 # --- Flask App Config ---
