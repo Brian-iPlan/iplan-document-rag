@@ -24,8 +24,9 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Create non-root user BEFORE copying files so chown works correctly
-RUN addgroup --system app && adduser --system --group app
+# Create non-root user WITH a home directory so gunicorn's control socket
+# doesn't hit 'Permission denied: /nonexistent'
+RUN addgroup --system app && adduser --system --group --home /home/app --create-home app
 
 WORKDIR /app
 
@@ -53,4 +54,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Shell form so $PORT is expanded at runtime; Cloud Run always injects PORT=8080
-CMD gunicorn --bind "0.0.0.0:${PORT:-8080}" --workers 2 --threads 2 --timeout 120 --chdir /app app:app
+# --worker-tmp-dir /tmp ensures the heartbeat pipe is writable by the non-root user
+CMD gunicorn --bind "0.0.0.0:${PORT:-8080}" --workers 2 --threads 2 --timeout 120 --worker-tmp-dir /tmp --chdir /app app:app
