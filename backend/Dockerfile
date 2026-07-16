@@ -55,6 +55,8 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-# Shell form so $PORT is expanded at runtime; Cloud Run always injects PORT=8080
-# --worker-tmp-dir /tmp ensures the heartbeat pipe is writable by the non-root user
-CMD gunicorn --bind "0.0.0.0:${PORT:-8080}" --workers 2 --threads 2 --timeout 120 --worker-tmp-dir /tmp --chdir /app app:app
+# Shell form so $PORT is expanded at runtime; Cloud Run always injects PORT=8080.
+# 1 worker + 4 threads: same concurrency as 2 workers but half the memory.
+# --preload loads the app once in the master; workers share it via copy-on-write.
+# --worker-tmp-dir /tmp ensures the heartbeat pipe is writable by the non-root user.
+CMD gunicorn --bind "0.0.0.0:${PORT:-8080}" --workers 1 --threads 4 --timeout 120 --worker-tmp-dir /tmp --preload --chdir /app app:app
