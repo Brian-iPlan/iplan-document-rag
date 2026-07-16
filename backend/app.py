@@ -305,6 +305,7 @@ def chat_handler():
 def favicon():
     return '', 204
 
+@app.route('/health', methods=['GET'])
 @app.route('/', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy", "service": "iplan-document-rag-backend"}), 200
