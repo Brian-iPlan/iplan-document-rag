@@ -1,7 +1,11 @@
 # 1. Builder Stage
 FROM python:3.11-slim AS builder
 
-WORKDIR /build
+# IMPORTANT: venv MUST be created at the same absolute path used in the runtime
+# stage. Venv scripts bake the creation-time path into shebang lines and
+# pyvenv.cfg — if the path changes between stages, all entrypoints (gunicorn
+# etc.) break with 'not found' (exit 127).
+WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
@@ -9,9 +13,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN pip install --upgrade pip
 
 COPY requirements.txt .
-# Install into /build/venv so binaries land at a predictable, user-agnostic path
-RUN python -m venv /build/venv && \
-    /build/venv/bin/pip install --no-cache-dir -r requirements.txt
+RUN python -m venv /app/venv && \
+    /app/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 
 # 2. Runtime Stage
@@ -27,7 +30,7 @@ RUN addgroup --system app && adduser --system --group app
 WORKDIR /app
 
 # Copy the entire venv from builder (binaries + site-packages, all in one tree)
-COPY --from=builder /build/venv /app/venv
+COPY --from=builder /app/venv /app/venv
 
 # Copy application code
 COPY . .
