@@ -32,8 +32,6 @@ else:
     client = genai.Client()
     print("WARNING: GEMINI_API_KEY is not set in the environment. Initialized client with default credentials.")
 
-
-
 # --- Text Extraction Libraries ---
 import pypdf
 import docx
@@ -44,16 +42,13 @@ import docx
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
 
 if credentials_json and credentials_json.strip():
-    # If provided (e.g., in local development), write to a temp file
     with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_f:
         temp_f.write(credentials_json)
         temp_f.flush()
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_f.name
 else:
-    # Safe fallback: Cloud Run natively uses its attached runtime service account.
     print("GOOGLE_APPLICATION_CREDENTIALS_JSON not found or blank. Using Application Default Credentials.")
 
-# Explicitly initialize Vertex AI
 PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 LOCATION = "us-central1"
 aiplatform.init(project=PROJECT_ID, location=LOCATION)
@@ -63,7 +58,6 @@ REDIS_URL = os.getenv("REDIS_URL")
 if not REDIS_URL:
     raise ValueError("REDIS_URL not found. Please set it in an environment variable.")
 
-# Upstash Redis requires SSL/TLS (rediss://). If it's an upstash.io URL using redis://, auto-upgrade it.
 if "upstash.io" in REDIS_URL and REDIS_URL.startswith("redis://"):
     print("Auto-upgrading Redis URL to secure rediss:// protocol for Upstash compatibility.")
     REDIS_URL = REDIS_URL.replace("redis://", "rediss://", 1)
@@ -77,10 +71,8 @@ ALLOWED_EXTENSIONS = {'pdf', 'docx', 'doc', 'xls', 'xlsx', 'txt', 'md', 'csv'}
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Allow dynamic CORS handling across localhost and any Vercel domain branches
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-# Hard intercept to dynamically trust whichever active Vercel domain or local engine calls it
 @app.after_request
 def add_cors_headers(response):
     origin = request.headers.get('Origin')
@@ -99,7 +91,6 @@ def allowed_file(filename):
 
 # --- API ENDPOINTS ---
 
-# 1. Document Upload Route
 @app.route('/documents', methods=['POST', 'OPTIONS'])
 @app.route('/documents/', methods=['POST', 'OPTIONS'])
 @app.route('/documents/<path:path>', methods=['POST', 'OPTIONS'])
@@ -108,6 +99,18 @@ def upload_document_handler(path=None):
         return jsonify({"status": "ok"}), 200
 
     try:
+        # MIME mapping for Gemini file uploads
+        MIME_TYPE_MAP = {
+            'pdf': 'application/pdf',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'doc': 'application/msword',
+            'txt': 'text/plain',
+            'md': 'text/markdown',
+            'csv': 'text/csv',
+            'xls': 'application/vnd.ms-excel',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+
         client_id = None
         file_name = None
         file_bytes = None
@@ -132,20 +135,17 @@ def upload_document_handler(path=None):
                 else:
                     file_bytes = raw_data
         else:
-            # 1. Standard file upload
             if 'file' in request.files:
                 file = request.files['file']
                 client_id = request.form.get('clientId')
                 file_name = file.filename
                 file_bytes = file.read()
                 request_size = request.form.get('requestSize')
-            # 2. Form field data upload
             elif 'data' in request.form:
                 client_id = request.form.get('clientId')
                 file_name = request.form.get('fileName') or request.form.get('filename') or 'document.txt'
                 raw_data = request.form.get('data')
                 request_size = request.form.get('requestSize')
-                
                 import base64
                 if isinstance(raw_data, str):
                     try:
@@ -163,9 +163,12 @@ def upload_document_handler(path=None):
         if file_name == '' or not allowed_file(file_name):
             return jsonify({"error": "Invalid file type"}), 400
 
-        # Log details about the upload size
+        # Map the extension to a MIME type
+        extension = file_name.rsplit('.', 1)[1].lower() if '.' in file_name else 'txt'
+        mime_type = MIME_TYPE_MAP.get(extension, 'application/octet-stream')
+
         file_size = len(file_bytes)
-        print(f"Processing upload: client={client_id}, file={file_name}, size={file_size} bytes, requestSize={request_size}")
+        print(f"Processing upload: client={client_id}, file={file_name}, type={mime_type}, size={file_size} bytes")
 
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file_name))
         with open(filepath, 'wb') as f:
@@ -176,7 +179,10 @@ def upload_document_handler(path=None):
             print(f"Uploading {new_name} to Gemini...")
             gemini_file = client.files.upload(
                 file=filepath,
-                config=types.UploadFileConfig(display_name=new_name)
+                config=types.UploadFileConfig(
+                    display_name=new_name,
+                    mime_type=mime_type
+                )
             )
             
             doc_id = gemini_file.name
@@ -184,7 +190,7 @@ def upload_document_handler(path=None):
                 "id": doc_id,
                 "name": new_name,
                 "clientId": client_id,
-                "type": file_name.rsplit('.', 1)[1].lower() if '.' in file_name else 'txt',
+                "type": extension,
                 "date": datetime.datetime.now().strftime('%b %d, %Y'),
                 "status": 'active',
                 "gemini_name": gemini_file.name
@@ -198,7 +204,6 @@ def upload_document_handler(path=None):
         except Exception as api_err:
             import traceback
             traceback.print_exc()
-            print(f"Gemini API upload or Redis save failed: {api_err}")
             return jsonify({"error": str(api_err), "traceback": traceback.format_exc()}), 500
         finally:
             if os.path.exists(filepath):
@@ -206,9 +211,7 @@ def upload_document_handler(path=None):
     except Exception as route_err:
         import traceback
         traceback.print_exc()
-        print(f"Route handler failed: {route_err}")
         return jsonify({"error": str(route_err), "traceback": traceback.format_exc()}), 500
-
 
 @app.route('/documents/<path:doc_id>', methods=['DELETE', 'OPTIONS'])
 def delete_document_handler(doc_id):
@@ -222,7 +225,6 @@ def delete_document_handler(doc_id):
         print(f"Error during deletion: {e}")
         return jsonify({"error": str(e)}), 500
 
-# 2. Document List Retrieval Route
 @app.route('/documents', methods=['GET', 'OPTIONS'])
 @app.route('/documents/', methods=['GET', 'OPTIONS'])
 @app.route('/documents/<path:path>', methods=['GET', 'OPTIONS'])
@@ -237,7 +239,6 @@ def get_documents_list_handler(path=None):
         print(f"Error fetching documents: {e}")
         return jsonify([]), 500
 
-# 3. AI Document Streaming Chat Route
 @app.route('/chat', methods=['POST', 'OPTIONS'])
 def chat_handler():
     if request.method == 'OPTIONS':
