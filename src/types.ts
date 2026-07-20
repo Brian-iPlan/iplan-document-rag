@@ -1,7 +1,7 @@
 export interface DocumentItem {
   id: string;
   name: string;
-  type: 'pdf' | 'docx' | 'txt' | 'md' | 'other';
+  type: 'pdf' | 'docx' | 'doc' | 'xls' | 'xlsx' | 'txt' | 'md' | 'csv' | 'other';
   date: string;
   status: 'active' | 'indexing' | 'error';
   size?: string;

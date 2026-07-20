@@ -12,7 +12,8 @@ import {
   File,
   X,
   Loader2,
-  Trash2
+  Trash2,
+  FileSpreadsheet
 } from 'lucide-react';
 import type { DocumentItem, ViewMode } from '../types';
 import { getDocumentContent } from '../services/geminiService';
@@ -90,7 +91,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const getFileIcon = (type: string) => {
     switch (type) {
       case 'pdf': return <FileText className="text-rose-500" size={24} />;
+      case 'doc':
       case 'docx': return <FileText className="text-blue-500" size={24} />;
+      case 'xls':
+      case 'xlsx':
+      case 'csv': return <FileSpreadsheet className="text-emerald-500" size={24} />;
       case 'md': return <FileCode className="text-slate-300" size={24} />;
       default: return <File className="text-slate-400" size={24} />;
     }

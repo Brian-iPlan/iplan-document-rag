@@ -52,7 +52,7 @@ const App: React.FC = () => {
     }
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.docx,.txt,.md,.csv';
+    input.accept = '.pdf,.docx,.doc,.txt,.md,.csv,.xls,.xlsx';
     
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];

@@ -73,7 +73,7 @@ r = redis.from_url(REDIS_URL, decode_responses=True)
 # --- Flask App Config ---
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'md'}
+ALLOWED_EXTENSIONS = {'pdf', 'docx', 'doc', 'xls', 'xlsx', 'txt', 'md', 'csv'}
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
